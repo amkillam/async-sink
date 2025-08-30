@@ -3,7 +3,7 @@ use core::future::Future;
 use core::marker::PhantomData;
 use core::pin::Pin;
 use core::task::{Context, Poll};
-use tokio_stream::{ Stream};
+use tokio_stream::Stream;
 use tokio_stream_util::FusedStream;
 
 use super::Sink;
@@ -149,7 +149,7 @@ where
                 Ok(item) => item,
                 Err(e) => return Poll::Ready(Err(e)),
             };
-            let mut sink = unsafe { Pin::new_unchecked(&mut this.sink) };
+            let sink = unsafe { Pin::new_unchecked(&mut this.sink) };
             if let Err(e) = sink.start_send(item) {
                 return Poll::Ready(Err(e.into()));
             }

@@ -2,7 +2,7 @@ use super::Sink;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use std::collections::VecDeque;
-use tokio_stream::{ Stream};
+use tokio_stream::Stream;
 use tokio_stream_util::FusedStream;
 
 /// Sink for the [`buffer`](super::SinkExt::buffer) method.

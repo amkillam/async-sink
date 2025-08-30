@@ -2,7 +2,7 @@ use super::Sink;
 use core::marker::PhantomData;
 use core::pin::Pin;
 use core::task::{Context, Poll};
-use tokio_stream::{ Stream};
+use tokio_stream::Stream;
 use tokio_stream_util::FusedStream;
 
 /// Sink for the [`sink_err_into`](super::SinkExt::sink_err_into) method.

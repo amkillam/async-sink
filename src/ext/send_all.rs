@@ -1,10 +1,12 @@
 use super::Sink;
-use core::fmt;
-use core::future::Future;
-use core::pin::Pin;
-use core::task::{Context, Poll};
+use core::{
+    fmt,
+    future::Future,
+    ops::DerefMut,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tokio_stream_util::TryStream;
-use tokio_stream::Stream;
 
 /// Future for the [`send_all`](super::SinkExt::send_all) method.
 #[must_use = "futures do nothing unless you `.await` or poll them"]
@@ -89,7 +91,7 @@ where
                 return Pin::new(&mut *this.sink).poll_flush(cx);
             }
 
-            match Pin::new(&mut *this.stream).poll_next(cx) {
+            match <St as TryStream>::try_poll_next(Pin::new(this.stream.deref_mut()), cx) {
                 Poll::Ready(Some(Ok(item))) => match self.as_mut().try_start_send(cx, item) {
                     Poll::Ready(Ok(())) => continue,
                     Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),

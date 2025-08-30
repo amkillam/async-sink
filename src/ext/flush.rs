@@ -28,6 +28,6 @@ impl<Si: Sink<Item> + Unpin + ?Sized, Item> Future for Flush<'_, Si, Item> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
-        Pin::new(this.sink).poll_flush(cx)
+        Pin::new(&mut *this.sink).poll_flush(cx)
     }
 }

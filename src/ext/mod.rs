@@ -10,7 +10,7 @@ use core::future::Future;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use either::Either;
-use tokio_stream::{Stream};
+use tokio_stream::Stream;
 use tokio_stream_util::TryStream;
 
 pub use super::Sink;
@@ -345,13 +345,3 @@ pub trait SinkExt<Item>: Sink<Item> {
         Pin::new(self).poll_close(cx)
     }
 }
-
-// Just a helper function to ensure the sinks we're returning all have the
-// right implementations.
-pub(crate) fn assert_sink<T, E, S>(sink: S) -> S
-where
-    S: Sink<T, Error = E>,
-{
-    sink
-}
-

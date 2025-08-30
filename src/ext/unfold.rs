@@ -1,9 +1,9 @@
 use super::Sink;
 use crate::unfold_state::UnfoldState;
+use core::fmt;
 use core::future::Future;
 use core::pin::Pin;
 use core::task::{Context, Poll};
-use core::fmt;
 
 /// Sink for the [`unfold`] function.
 #[must_use = "sinks do nothing unless polled"]

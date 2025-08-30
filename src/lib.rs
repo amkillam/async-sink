@@ -18,8 +18,8 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
-pub(crate) mod unfold_state;
 mod ext;
+pub(crate) mod unfold_state;
 use core::ops::DerefMut;
 use core::pin::Pin;
 use core::task::{Context, Poll};

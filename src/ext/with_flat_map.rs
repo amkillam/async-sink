@@ -2,7 +2,7 @@ use core::fmt;
 use core::marker::PhantomData;
 use core::pin::Pin;
 use core::task::{Context, Poll};
-use tokio_stream::{ Stream};
+use tokio_stream::Stream;
 use tokio_stream_util::FusedStream;
 
 use super::Sink;
