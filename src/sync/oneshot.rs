@@ -6,49 +6,25 @@ use crate::Sink;
 ///
 /// [`tokio::sync::oneshot::Sender`]: struct@tokio::sync::oneshot::Sender
 /// [`Sink`]: trait@crate::Sink
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 #[repr(transparent)]
-pub struct SenderSink<T>(pub oneshot::Sender<T>);
+pub struct SenderSink<T>(pub Option<oneshot::Sender<T>>);
 
 impl<T> SenderSink<T> {
     /// Create a new `SenderSink` wrapping the provided `Sender`.
     #[inline(always)]
     pub fn new(sender: oneshot::Sender<T>) -> Self {
-        Self(sender)
+        Self(Some(sender))
     }
 
     /// Get back the inner `Sender`.
     #[inline(always)]
-    pub fn into_inner(self) -> oneshot::Sender<T> {
+    pub fn into_inner(self) -> Option<oneshot::Sender<T>> {
         self.0
     }
 
-    /// Closes the sending half of a channel without dropping it.
-    ///
-    /// This prevents any further messages from being sent on the channel while
-    /// still enabling the receiver to drain messages that are buffered. Any
-    /// outstanding [`Permit`] values will still be able to send messages.
-    ///
-    /// [`Permit`]: struct@tokio::sync::mpsc::Permit
-    #[inline(always)]
-    pub fn close(&self) {
-        self.0.close_channel();
-    }
 }
 
-impl<T> AsRef<oneshot::Sender<T>> for SenderSink<T> {
-    #[inline(always)]
-    fn as_ref(&self) -> &oneshot::Sender<T> {
-        &self.0
-    }
-}
-
-impl<T> AsMut<oneshot::Sender<T>> for SenderSink<T> {
-    #[inline(always)]
-    fn as_mut(&mut self) -> &mut oneshot::Sender<T> {
-        &mut self.0
-    }
-}
 
 impl<T> From<oneshot::Sender<T>> for SenderSink<T> {
     #[inline(always)]
@@ -59,25 +35,30 @@ impl<T> From<oneshot::Sender<T>> for SenderSink<T> {
 
 impl<T> Sink<T> for SenderSink<T> {
     type Error = T;
-   
+
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        if self.0.is_closed() {
-            Poll::Ready(Err(self.0.into_inner().unwrap_err()))
-        } else {
-            Poll::Ready(Ok(()))
-        }
+        let _ = cx;
+        // oneshot::Sender can accept exactly one message; we allow attempting to send
+        // and let start_send error if it's already been used.
+        Poll::Ready(Ok(()))
     }
 
     fn start_send(self: Pin<&mut Self>, item: T) -> Result<(), Self::Error> {
-       self.0.send(item)
+        match self.get_mut().0.take() {
+            Some(sender) => sender.send(item),
+            None => Err(item),
+        }
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Pin::new(&mut self.get_mut().0).poll_flush(cx)
+        let _ = cx;
+        Poll::Ready(Ok(()))
     }
 
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Pin::new(&mut self.get_mut().0).poll_close(cx)
+        let _ = cx;
+        let _ = self.get_mut().0.take();
+        Poll::Ready(Ok(()))
     }
 }
 

@@ -3,6 +3,9 @@ use tokio_stream::wrappers::{ReceiverStream, UnboundedReceiverStream};
 use core::{pin::Pin, task::{Context, Poll}};
 use crate::Sink;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SendError;
+
 /// A thin wrapper around [`tokio::sync::mpsc::Sender`] that implements [`Sync`].
 ///
 /// [`tokio::sync::mpsc::Sender`]: struct@tokio::sync::mpsc::Sender
@@ -47,36 +50,38 @@ impl<T> From<mpsc::Sender<T>> for SenderSink<T> {
 }
 
 impl<T> Sink<T> for SenderSink<T> {
-    type Error = mpsc::error::TrySendError<Option<T>>;
+    type Error = SendError;
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         if self.0.is_closed() {
-            return Poll::Ready(Err(mpsc::error::TrySendError::<Option<T>>::Closed(
-               None
-            )));
+            return Poll::Ready(Err(SendError));
         }
-        else if self.0.capacity() == 0 {
-            return Poll::Ready(Err(mpsc::error::TrySendError::<Option<T>>::Full(
-                None
-            )));
-        } else {
-    Poll::Ready(Ok(()))
+        if self.0.capacity() > 0 {
+            return Poll::Ready(Ok(()));
+        }
+        match self.get_mut().0.poll_reserve(cx) {
+            Poll::Ready(Ok(permit)) => {
+                drop(permit);
+                Poll::Ready(Ok(()))
+            }
+            Poll::Ready(Err(_)) => Poll::Ready(Err(SendError)),
+            Poll::Pending => Poll::Pending,
         }
     }
 
     fn start_send(self: Pin<&mut Self>, item: T) -> Result<(), Self::Error> {
-        Pin::new(&mut self.get_mut().0).try_send(item).map_err(|e| match e {
-            mpsc::error::TrySendError::Full(v) => mpsc::error::TrySendError::Full(Some(v)),
-            mpsc::error::TrySendError::Closed(v) => mpsc::error::TrySendError::Closed(Some(v)),
-        })
+        self.get_mut().0.try_send(item).map_err(|_| SendError)
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Pin::new(&mut self.get_mut().0).poll_flush(cx)
+        let _ = cx;
+        Poll::Ready(Ok(()))
     }
 
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Pin::new(&mut self.get_mut().0).poll_close(cx)
+        self.get_mut().0.close_channel();
+        let _ = cx;
+        Poll::Ready(Ok(()))
     }
 }
 
@@ -126,23 +131,27 @@ impl<T> From<mpsc::UnboundedSender<T>> for UnboundedSenderSink<T> {
 }
 
 impl<T> Sink<T> for UnboundedSenderSink<T> {
-    type Error = mpsc::error::TrySendError<T>;
+    type Error = SendError;
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        let _ = cx;
         // The unbounded sender is always ready to send
         Poll::Ready(Ok(()))
     }
 
     fn start_send(self: Pin<&mut Self>, item: T) -> Result<(), Self::Error> {
-        Pin::new(&mut self.get_mut().0).try_send(item)
+        self.get_mut().0.send(item).map_err(|_| SendError)
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Pin::new(&mut self.get_mut().0).poll_flush(cx)
+        let _ = cx;
+        Poll::Ready(Ok(()))
     }
 
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Pin::new(&mut self.get_mut().0).poll_close(cx)
+        self.get_mut().0.close_channel();
+        let _ = cx;
+        Poll::Ready(Ok(()))
     }
 }
 

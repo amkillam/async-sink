@@ -246,6 +246,7 @@ mod if_alloc {
 }
 
 #[cfg(feature = "alloc")]
+#[allow(unused_imports)]
 pub use if_alloc::*;
 
 
