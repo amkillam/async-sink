@@ -18,12 +18,14 @@ default = ["std", "alloc"]
 std = ["either/std", "tokio-stream-util/std"]
 alloc = ["tokio-stream-util/alloc"]
 sync = ["tokio-stream/sync", "tokio-stream-util/sync", "dep:tokio"]
+portable-atomic = ["tokio-stream-util/portable-atomic"]
+cfg-target-has-atomic = ["tokio-stream-util/cfg-target-has-atomic"]
 
 [dependencies]
 tokio-stream = { version = "0.1.17", default-features = false, features = [
   "io-util",
 ] }
-tokio-stream-util = { version = "0.1.2", default-features = false }
+tokio-stream-util = { version = "0.1.2", path = "../tokio-stream-util", default-features = false }
 tokio = { version = "1.15.0", default-features = false, features = [
   "sync",
 ], optional = true }

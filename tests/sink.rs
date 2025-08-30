@@ -19,6 +19,7 @@ use std::{
 };
 use tokio_sink::{Sink, SinkErrInto, SinkExt};
 use tokio_stream::{self as stream, Stream, StreamExt};
+use tokio_stream_util::{TryStream, TryStreamExt};
 
 #[cfg(feature = "sync")]
 use tokio_sink::sync::{mpsc, oneshot};
