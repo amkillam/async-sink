@@ -1,0 +1,4 @@
+contact_links:
+  - name: Question
+    url: https://github.com/amkillam/tokio-sink/discussions
+    about: Questions about tokio-sink should be posted as a GitHub discussion.
