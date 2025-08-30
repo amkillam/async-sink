@@ -17,13 +17,35 @@ rust-version = "1.36"
 default = ["std", "alloc"]
 std = ["either/std", "tokio-stream-util/std"]
 alloc = ["tokio-stream-util/alloc"]
+sync = ["tokio-stream/sync", "tokio-stream-util/sync", "dep:tokio"]
 
 [dependencies]
 tokio-stream = { version = "0.1.17", default-features = false, features = [
   "io-util",
 ] }
-tokio-stream-util = { version = "0.1.0", default-features = false }
+tokio-stream-util = { version = "0.1.2", default-features = false }
+tokio = { version = "1.15.0", default-features = false, features = [
+  "sync",
+], optional = true }
 either = { version = "1.15.0", default-features = false }
+
+[dev-dependencies]
+tokio-stream = { version = "0.1.17", default-features = false, features = [
+  "io-util",
+] }
+tokio = { version = "1.47.1", default-features = false, features = [
+  "io-util",
+  "macros",
+  "rt-multi-thread",
+  "sync",
+] }
+futures-test = { version = "0.3.28", default-features = false, features = [
+  "std",
+] }
+futures-util = { version = "0.3.28", default-features = false, features = [
+  "std",
+  "alloc",
+] }
 
 [lib]
 name = "tokio_sink"

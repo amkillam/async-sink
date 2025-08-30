@@ -25,6 +25,9 @@ use core::pin::Pin;
 use core::task::{Context, Poll};
 pub use ext::*;
 
+#[cfg(feature = "sync")]
+pub mod sync;
+
 /// A `Sink` is a value into which other values can be sent, asynchronously.
 ///
 /// Basic examples of sinks include the sending side of:
@@ -241,3 +244,9 @@ mod if_alloc {
         }
     }
 }
+
+#[cfg(feature = "alloc")]
+pub use if_alloc::*;
+
+
+
