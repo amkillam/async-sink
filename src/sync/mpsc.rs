@@ -3,6 +3,7 @@ use tokio_stream::wrappers::{ReceiverStream, UnboundedReceiverStream};
 use core::{pin::Pin, task::{Context, Poll}};
 use crate::Sink;
 use alloc::boxed::Box;
+use core::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SendError;
@@ -11,13 +12,12 @@ pub struct SendError;
 ///
 /// [`tokio::sync::mpsc::Sender`]: struct@tokio::sync::mpsc::Sender
 /// [`Sink`]: trait@crate::Sink
-#[derive(Debug)]
 pub struct SenderSink<T> {
     pub(crate) inner: mpsc::Sender<T>,
     // Future created by `reserve()` to register wakers for readiness.
     // Stored across polls to maintain proper waker registration.
     #[allow(clippy::type_complexity)]
-    reserve_fut: Option<Pin<Box<dyn core::future::Future<Output = Result<(), ()>> + Send + 'static>>>,
+    reserve_fut: Option<Pin<Box<dyn core::future::Future<Output = Result<(), ()>> + 'static>>>,
 }
 
 impl<T> SenderSink<T> {
@@ -54,6 +54,14 @@ impl<T> Clone for SenderSink<T> {
             inner: self.inner.clone(),
             reserve_fut: None,
         }
+    }
+}
+
+impl<T> fmt::Debug for SenderSink<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SenderSink")
+            .field("inner", &self.inner)
+            .finish()
     }
 }
 
