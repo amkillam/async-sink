@@ -2,43 +2,58 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::{ReceiverStream, UnboundedReceiverStream};
 use core::{pin::Pin, task::{Context, Poll}};
 use crate::Sink;
+use alloc::boxed::Box;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SendError;
 
-/// A thin wrapper around [`tokio::sync::mpsc::Sender`] that implements [`Sync`].
+—/// A thin wrapper around [`tokio::sync::mpsc::Sender`] that implements [`Sync`].
 ///
 /// [`tokio::sync::mpsc::Sender`]: struct@tokio::sync::mpsc::Sender
 /// [`Sink`]: trait@crate::Sink
-#[derive(Debug, Clone)]
-#[repr(transparent)]
-pub struct SenderSink<T>(pub mpsc::Sender<T>);
+#[derive(Debug)]
+pub struct SenderSink<T> {
+    pub(crate) inner: mpsc::Sender<T>,
+    // Future created by `reserve()` to register wakers for readiness.
+    // Stored across polls to maintain proper waker registration.
+    #[allow(clippy::type_complexity)]
+    reserve_fut: Option<Pin<Box<dyn core::future::Future<Output = Result<(), ()>> + Send + 'static>>>,
+}
 
 impl<T> SenderSink<T> {
     /// Create a new `SenderSink` wrapping the provided `Sender`.
     #[inline(always)]
     pub fn new(sender: mpsc::Sender<T>) -> Self {
-        Self(sender)
+        Self { inner: sender, reserve_fut: None }
     }
 
     /// Get back the inner `Sender`.
     #[inline(always)]
     pub fn into_inner(self) -> mpsc::Sender<T> {
-        self.0
+        self.inner
     }
 }
 
 impl<T> AsRef<mpsc::Sender<T>> for SenderSink<T> {
     #[inline(always)]
     fn as_ref(&self) -> &mpsc::Sender<T> {
-        &self.0
+        &self.inner
     }
 }
 
 impl<T> AsMut<mpsc::Sender<T>> for SenderSink<T> {
     #[inline(always)]
     fn as_mut(&mut self) -> &mut mpsc::Sender<T> {
-        &mut self.0
+        &mut self.inner
+    }
+}
+
+impl<T> Clone for SenderSink<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            reserve_fut: None,
+        }
     }
 }
 
@@ -52,25 +67,52 @@ impl<T> From<mpsc::Sender<T>> for SenderSink<T> {
 impl<T> Sink<T> for SenderSink<T> {
     type Error = SendError;
 
-    fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        if self.0.is_closed() {
+    fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        let this = self.as_mut().get_mut();
+
+        if this.inner.is_closed() {
             return Poll::Ready(Err(SendError));
         }
-        if self.0.capacity() > 0 {
+        if this.inner.capacity() > 0 {
+            // If we previously spawned a reserve future, drop it now.
+            this.reserve_fut = None;
             return Poll::Ready(Ok(()));
         }
-        match self.get_mut().0.poll_reserve(cx) {
-            Poll::Ready(Ok(permit)) => {
-                drop(permit);
+
+        if this.reserve_fut.is_none() {
+            let sender = this.inner.clone();
+            this.reserve_fut = Some(Box::pin(async move {
+                match sender.reserve().await {
+                    Ok(permit) => {
+                        drop(permit);
+                        Ok(())
+                    }
+                    Err(_) => Err(()),
+                }
+            }));
+        }
+
+        match this
+            .reserve_fut
+            .as_mut()
+            .expect("reserve_fut must be set")
+            .as_mut()
+            .poll(cx)
+        {
+            Poll::Ready(Ok(())) => {
+                this.reserve_fut = None;
                 Poll::Ready(Ok(()))
             }
-            Poll::Ready(Err(_)) => Poll::Ready(Err(SendError)),
+            Poll::Ready(Err(_)) => {
+                this.reserve_fut = None;
+                Poll::Ready(Err(SendError))
+            }
             Poll::Pending => Poll::Pending,
         }
     }
 
     fn start_send(self: Pin<&mut Self>, item: T) -> Result<(), Self::Error> {
-        self.get_mut().0.try_send(item).map_err(|_| SendError)
+        self.get_mut().inner.try_send(item).map_err(|_| SendError)
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -79,7 +121,6 @@ impl<T> Sink<T> for SenderSink<T> {
     }
 
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.get_mut().0.close_channel();
         let _ = cx;
         Poll::Ready(Ok(()))
     }
@@ -149,7 +190,6 @@ impl<T> Sink<T> for UnboundedSenderSink<T> {
     }
 
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.get_mut().0.close_channel();
         let _ = cx;
         Poll::Ready(Ok(()))
     }
