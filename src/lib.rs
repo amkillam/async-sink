@@ -1,4 +1,4 @@
-//! Asynchronous sinks
+//! Asynchronous sinks for the [tokio](https://docs.rs/tokio) ecosystem
 //!
 //! This crate contains the `Sink` trait which allows values to be sent
 //! asynchronously.
