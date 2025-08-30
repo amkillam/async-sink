@@ -2,13 +2,13 @@ use core::{
     cell::{Cell, RefCell},
     convert::Infallible,
     fmt,
-    future::{Future, poll_fn},
+    future::{poll_fn, Future},
     mem,
     pin::{pin, Pin},
     task::{Context, Poll, Waker},
 };
 use futures_test::task::panic_context;
-use futures_util::{TryFutureExt, future};
+use futures_util::{future, TryFutureExt};
 use std::{
     collections::VecDeque,
     rc::Rc,
@@ -17,8 +17,11 @@ use std::{
         Arc,
     },
 };
-use tokio_sink::{ sync::mpsc, Sink, SinkErrInto, SinkExt};
-use tokio_stream::{ stream::{self, StreamExt}, Stream};
+use tokio_sink::{Sink, SinkErrInto, SinkExt};
+use tokio_stream::{self as stream, Stream, StreamExt};
+
+#[cfg(feature = "sync")]
+use tokio_sink::sync::{mpsc, oneshot};
 
 fn sassert_next<S>(s: &mut S, item: S::Item)
 where
@@ -287,12 +290,13 @@ async fn send_all() {
 
 // Test that `start_send` on an `mpsc` channel does indeed block when the
 // channel is full
+#[cfg(feature = "sync")]
 #[tokio::test]
 async fn mpsc_blocking_start_send() {
     let (mut tx, mut rx) = mpsc::channel::<i32>(0);
 
     future::lazy(|_| {
-        tx.start_send(0).unwrap();
+        Pin::new(&mut tx).start_send(0).unwrap();
 
         flag_cx(|flag, cx| {
             let mut task = StartSendFut::new(tx, 1);
@@ -311,6 +315,7 @@ async fn mpsc_blocking_start_send() {
 
 // test `flush` by using `with` to make the first insertion into a sink block
 // until a oneshot is completed
+#[cfg(feature = "sync")]
 #[tokio::test]
 async fn with_flush() {
     let (tx, rx) = oneshot::channel();
@@ -333,7 +338,8 @@ async fn with_flush() {
 
         sink.send(1).await.unwrap();
         assert_eq!(sink.get_ref(), &[1, 2]);
-    }).await
+    })
+    .await
 }
 
 // test simple use of with to change data
@@ -358,7 +364,7 @@ async fn with_flat_map() {
 }
 
 // Check that `with` propagates `poll_ready` to the inner sink.
-// Regression test for the issue #1834.
+#[cfg(feature = "sync")]
 #[tokio::test]
 async fn with_propagates_poll_ready() {
     let (tx, mut rx) = mpsc::channel::<i32>(0);
@@ -408,6 +414,7 @@ async fn with_flush_propagate() {
 }
 
 // test that `Clone` is implemented on `with` sinks
+#[cfg(feature = "sync")]
 #[tokio::test]
 async fn with_implements_clone() {
     let (mut tx, rx) = mpsc::channel(5);
@@ -485,6 +492,7 @@ async fn fanout_smoke() {
     assert_eq!(sink2, vec![1, 2, 3]);
 }
 
+#[cfg(feature = "sync")]
 #[tokio::test]
 async fn fanout_backpressure() {
     let (left_send, mut left_recv) = mpsc::channel(0);
@@ -518,6 +526,7 @@ async fn fanout_backpressure() {
     .await
 }
 
+#[cfg(feature = "sync")]
 #[tokio::test]
 async fn sink_map_err() {
     {
@@ -535,6 +544,7 @@ async fn sink_map_err() {
     );
 }
 
+#[cfg(feature = "sync")]
 #[tokio::test]
 async fn sink_unfold() {
     poll_fn(|cx| {
@@ -546,7 +556,7 @@ async fn sink_unfold() {
                 Ok::<_, String>(())
             }
         });
-        let mut unfold = pin!(unfold);
+        let mut unfold = core::pin::pin!(unfold);
         assert_eq!(unfold.as_mut().start_send(1), Ok(()));
         assert_eq!(unfold.as_mut().poll_flush(cx), Poll::Ready(Ok(())));
         assert_eq!(rx.try_recv().unwrap(), 1);
@@ -568,6 +578,7 @@ async fn sink_unfold() {
     .await
 }
 
+#[cfg(feature = "sync")]
 #[tokio::test]
 async fn err_into() {
     #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -582,7 +593,7 @@ async fn err_into() {
     {
         let cx = &mut panic_context();
         let (tx, _rx) = mpsc::channel(1);
-        let mut tx: SinkErrInto<mpsc::Sender<()>, _, ErrIntoTest> = tx.sink_err_into();
+        let mut tx: SinkErrInto<mpsc::SenderSink<()>, _, ErrIntoTest> = tx.sink_err_into();
         assert_eq!(Pin::new(&mut tx).start_send(()), Ok(()));
         assert_eq!(Pin::new(&mut tx).poll_flush(cx), Poll::Ready(Ok(())));
     }

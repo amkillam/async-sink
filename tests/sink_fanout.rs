@@ -1,9 +1,10 @@
-use tokio::sync::mpsc;
-use tokio_sink::SinkExt;
-use tokio_stream::{self, StreamExt};
-
+#[cfg(feature = "sync")]
 #[tokio::test]
 async fn it_works() {
+    use tokio::join;
+    use tokio_sink::{sync::mpsc, SinkExt};
+    use tokio_stream::{self as stream, StreamExt};
+
     let (tx1, rx1) = mpsc::channel(1);
     let (tx2, rx2) = mpsc::channel(2);
     let tx = tx1.fanout(tx2).sink_map_err(|_| ());

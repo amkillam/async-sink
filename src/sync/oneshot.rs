@@ -1,6 +1,14 @@
-use tokio::sync::oneshot;
-use core::{pin::Pin, task::{Context, Poll}};
+//! A wrapper [`Sink`] implementation for [`tokio::sync::oneshot`].
+//!
+//! [`Sink`]: trait@crate::Sink
+//! [`tokio::sync::oneshot`]: https://docs.rs/tokio/latest
+
 use crate::Sink;
+use core::{
+    pin::Pin,
+    task::{Context, Poll},
+};
+use tokio::sync::oneshot;
 
 /// A thin wrapper around [`tokio::sync::oneshot::Sender`] that implements [`Sync`].
 ///
@@ -22,9 +30,7 @@ impl<T> SenderSink<T> {
     pub fn into_inner(self) -> Option<oneshot::Sender<T>> {
         self.0
     }
-
 }
-
 
 impl<T> From<oneshot::Sender<T>> for SenderSink<T> {
     #[inline(always)]
@@ -62,7 +68,17 @@ impl<T> Sink<T> for SenderSink<T> {
     }
 }
 
-pub fn oneshot<T>() -> (SenderSink<T>, tokio_stream_util::sync::oneshot::ReceiverStream<T>) {
+/// Create a new oneshot channel, returning a [`SenderSink`] and a [`ReceiverStream`].
+///
+/// [`SenderSink`]: struct@SenderSink
+/// [`ReceiverStream`]: struct@tokio_stream_util::sync::oneshot::Receiver
+pub fn channel<T>() -> (
+    SenderSink<T>,
+    tokio_stream_util::sync::oneshot::ReceiverStream<T>,
+) {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    (SenderSink::new(tx), tokio_stream_util::sync::oneshot::ReceiverStream::new(rx))
+    (
+        SenderSink::new(tx),
+        tokio_stream_util::sync::oneshot::ReceiverStream::new(rx),
+    )
 }
