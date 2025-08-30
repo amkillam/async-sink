@@ -7,7 +7,7 @@ use alloc::boxed::Box;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SendError;
 
-—/// A thin wrapper around [`tokio::sync::mpsc::Sender`] that implements [`Sync`].
+/// A thin wrapper around [`tokio::sync::mpsc::Sender`] that implements [`Sync`].
 ///
 /// [`tokio::sync::mpsc::Sender`]: struct@tokio::sync::mpsc::Sender
 /// [`Sink`]: trait@crate::Sink
