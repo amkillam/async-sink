@@ -11,7 +11,7 @@ keywords = ["tokio", "sink", "stream", "asynchronous", "async"]
 categories = ["asynchronous", "network-programming", "data-structures"]
 homepage = "https://github.com/amkillam/tokio-sink"
 documentation = "https://docs.rs/tokio-sink"
-rust-version = "1.36"
+rust-version = "1.40.0"
 
 [features]
 default = ["std", "alloc"]
