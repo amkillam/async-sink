@@ -112,7 +112,7 @@ impl<T: 'static> Sink<T> for SenderSink<T> {
                         drop(permit);
                         Ok(())
                     }
-                    Err(e) => Err(mpsc::error::TrySendError::Full(())),
+                    Err(_e) => Err(mpsc::error::TrySendError::Full(())),
                 }
             }));
         }
