@@ -22,29 +22,29 @@ portable-atomic = ["tokio-stream-util/portable-atomic"]
 cfg-target-has-atomic = ["tokio-stream-util/cfg-target-has-atomic"]
 
 [dependencies]
-tokio-stream = { version = "0.1.17", default-features = false, features = [
+tokio-stream = { version = "^0.1.17", default-features = false, features = [
   "io-util",
 ] }
-tokio-stream-util = { version = "0.1.2", path = "../tokio-stream-util", default-features = false }
-tokio = { version = "1.15.0", default-features = false, features = [
+tokio-stream-util = { version = "^0.1.2", default-features = false }
+tokio = { version = "^1.15.0", default-features = false, features = [
   "sync",
 ], optional = true }
-either = { version = "1.15.0", default-features = false }
+either = { version = "^1.15.0", default-features = false }
 
 [dev-dependencies]
-tokio-stream = { version = "0.1.17", default-features = false, features = [
+tokio-stream = { version = "^0.1.17", default-features = false, features = [
   "io-util",
 ] }
-tokio = { version = "1.47.1", default-features = false, features = [
+tokio = { version = "^1.15.0", default-features = false, features = [
   "io-util",
   "macros",
   "rt-multi-thread",
   "sync",
 ] }
-futures-test = { version = "0.3.28", default-features = false, features = [
+futures-test = { version = "^0.3.28", default-features = false, features = [
   "std",
 ] }
-futures-util = { version = "0.3.28", default-features = false, features = [
+futures-util = { version = "^0.3.28", default-features = false, features = [
   "std",
   "alloc",
 ] }
