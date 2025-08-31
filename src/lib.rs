@@ -232,3 +232,61 @@ impl<S: ?Sized + Sink<Item> + Unpin, Item> Sink<Item> for alloc::boxed::Box<S> {
         Pin::new(&mut **self).poll_close(cx)
     }
 }
+
+impl<SL: Sized + Sink<Item> + Unpin, SR: Sized + Sink<Item> + Unpin, Item> Sink<Item>
+    for either::Either<SL, SR>
+{
+    type Error = either::Either<SL::Error, SR::Error>;
+
+    fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        match self.get_mut() {
+            either::Either::Left(s) => match Pin::new(s).poll_ready(cx) {
+                Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
+                Poll::Ready(Err(e)) => Poll::Ready(Err(either::Either::Left(e))),
+                Poll::Pending => Poll::Pending,
+            },
+            either::Either::Right(s) => match Pin::new(s).poll_ready(cx) {
+                Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
+                Poll::Ready(Err(e)) => Poll::Ready(Err(either::Either::Right(e))),
+                Poll::Pending => Poll::Pending,
+            },
+        }
+    }
+
+    fn start_send(self: Pin<&mut Self>, item: Item) -> Result<(), Self::Error> {
+        match self.get_mut() {
+            either::Either::Left(s) => Pin::new(s).start_send(item).map_err(either::Either::Left),
+            either::Either::Right(s) => Pin::new(s).start_send(item).map_err(either::Either::Right),
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        match self.get_mut() {
+            either::Either::Left(s) => match Pin::new(s).poll_flush(cx) {
+                Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
+                Poll::Ready(Err(e)) => Poll::Ready(Err(either::Either::Left(e))),
+                Poll::Pending => Poll::Pending,
+            },
+            either::Either::Right(s) => match Pin::new(s).poll_flush(cx) {
+                Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
+                Poll::Ready(Err(e)) => Poll::Ready(Err(either::Either::Right(e))),
+                Poll::Pending => Poll::Pending,
+            },
+        }
+    }
+
+    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        match self.get_mut() {
+            either::Either::Left(s) => match Pin::new(s).poll_close(cx) {
+                Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
+                Poll::Ready(Err(e)) => Poll::Ready(Err(either::Either::Left(e))),
+                Poll::Pending => Poll::Pending,
+            },
+            either::Either::Right(s) => match Pin::new(s).poll_close(cx) {
+                Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
+                Poll::Ready(Err(e)) => Poll::Ready(Err(either::Either::Right(e))),
+                Poll::Pending => Poll::Pending,
+            },
+        }
+    }
+}

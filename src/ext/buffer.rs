@@ -1,7 +1,7 @@
 use super::Sink;
+use alloc::collections::VecDeque;
 use core::pin::Pin;
 use core::task::{Context, Poll};
-use std::collections::VecDeque;
 use tokio_stream::Stream;
 use tokio_stream_util::FusedStream;
 

@@ -2,5 +2,6 @@
 //!
 //! [`Sink`]: trait@crate::Sink
 
+#[cfg(feature = "alloc")]
 pub mod mpsc;
 pub mod oneshot;
