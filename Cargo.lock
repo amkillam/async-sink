@@ -51,6 +51,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "futures-core"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "portable-atomic 1.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "futures-executor"
@@ -196,6 +199,11 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "portable-atomic"
+version = "1.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.101"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -265,7 +273,7 @@ dependencies = [
  "futures-util 0.3.31 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 1.47.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-stream 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "tokio-stream-util 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-stream-util 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -281,9 +289,13 @@ dependencies = [
 
 [[package]]
 name = "tokio-stream-util"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
+ "either 1.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-core 0.3.31 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-task 0.3.31 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-util 0.3.31 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 1.47.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-stream 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -400,6 +412,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum pin-project-internal 1.1.10 (registry+https://github.com/rust-lang/crates.io-index)" = "6e918e4ff8c4549eb882f14b3a4bc8c8bc93de829416eacf579f1207a8fbf861"
 "checksum pin-project-lite 0.2.16 (registry+https://github.com/rust-lang/crates.io-index)" = "3b3cff922bd51709b605d9ead9aa71031d81447142d828eb4a6eba76fe619f9b"
 "checksum pin-utils 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
+"checksum portable-atomic 1.11.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f84267b20a16ea918e43c6a88433c2d54fa145c92a811b5b047ccbe153674483"
 "checksum proc-macro2 1.0.101 (registry+https://github.com/rust-lang/crates.io-index)" = "89ae43fd86e4158d6db51ad8e2b80f313af9cc74f5c0e03ccb87de09998732de"
 "checksum quote 1.0.40 (registry+https://github.com/rust-lang/crates.io-index)" = "1885c039570dc00dcb4ff087a89e185fd56bae234ddc7f056a945bf36467248d"
 "checksum rustc-demangle 0.1.26 (registry+https://github.com/rust-lang/crates.io-index)" = "56f7d92ca342cea22a06f2121d944b4fd82af56988c270852495420f961d4ace"
@@ -408,7 +421,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum tokio 1.47.1 (registry+https://github.com/rust-lang/crates.io-index)" = "89e49afdadebb872d3145a5638b59eb0691ea23e46ca484037cfab3b76b95038"
 "checksum tokio-macros 2.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6e06d43f1345a3bcd39f6a56dbb7dcab2ba47e68e8ac134855e7e2bdbaf8cab8"
 "checksum tokio-stream 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)" = "eca58d7bba4a75707817a2c44174253f9236b2d5fbd055602e9d5c07c139a047"
-"checksum tokio-stream-util 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "d59a9bcdf8f1f69a65174a2468528a3dfa0c8474b6f338b00099c33f1b71c4eb"
+"checksum tokio-stream-util 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "07d7ab1991d17dea81178fb32a664d144c690ab1bb8eccd044828ed632d8df50"
 "checksum tokio-util 0.7.16 (registry+https://github.com/rust-lang/crates.io-index)" = "14307c986784f72ef81c89db7d9e28d6ac26d16213b109ea501696195e6e3ce5"
 "checksum unicode-ident 1.0.18 (registry+https://github.com/rust-lang/crates.io-index)" = "5a5f39404a5da50712a4c1eecf25e90dd62b613502b7e925fd4e4d19b5c96512"
 "checksum wasi 0.11.1+wasi-snapshot-preview1 (registry+https://github.com/rust-lang/crates.io-index)" = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
