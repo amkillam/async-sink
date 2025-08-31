@@ -2,13 +2,13 @@ use core::{
     cell::{Cell, RefCell},
     convert::Infallible,
     fmt,
-    future::{poll_fn, Future},
+    future::Future,
     mem,
-    pin::{pin, Pin},
+    pin::Pin,
     task::{Context, Poll, Waker},
 };
 use futures_test::task::panic_context;
-use futures_util::{future, TryFutureExt};
+use futures_util::future;
 use std::{
     collections::VecDeque,
     rc::Rc,
@@ -17,12 +17,19 @@ use std::{
         Arc,
     },
 };
-use tokio_sink::{Sink, SinkErrInto, SinkExt};
+use tokio_sink::{Sink, SinkExt};
 use tokio_stream::{self as stream, Stream, StreamExt};
-use tokio_stream_util::{TryStream, TryStreamExt};
 
 #[cfg(feature = "sync")]
+use cor::{future::poll_fn, pin::pin};
+#[cfg(feature = "sync")]
+use futures_util::TryFutureExt;
+#[cfg(feature = "sync")]
 use tokio_sink::sync::{mpsc, oneshot};
+#[cfg(feature = "sync")]
+use tokio_sink::SinkErrInto;
+#[cfg(feature = "sync")]
+use tokio_stream_util::{TryStream, TryStreamExt};
 
 fn sassert_next<S>(s: &mut S, item: S::Item)
 where
