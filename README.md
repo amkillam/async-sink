@@ -2,6 +2,8 @@
 
 The asynchronous `Sink` trait for the tokio ecosystem.
 
+This is largely equivalent to the `Sink` trait seen in the [futures-util](https://docs.rs/futures-util) crate, but has been adapted to use equivalent IO and [streaming](https://docs.rs/tokio-stream) traits from the tokio ecosystem
+
 [![Crates.io][crates-badge]][crates-url]
 [![MIT licensed][mit-badge]][mit-url]
 [![Build Status][actions-badge]][actions-url]
@@ -25,3 +27,4 @@ This project is licensed under the [MIT license](LICENSE).
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in tokio-sink by you, shall be licensed as MIT, without any additional
 terms or conditions.
+
