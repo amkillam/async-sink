@@ -15,11 +15,14 @@ jobs:
         rust: [stable, beta]
         features:
           [
+            "--features=alloc,std,sync",
+            "--features=alloc,std",
+            "--features=alloc,sync",
+            "--features=alloc",
+            "--features=std,sync",
+            "--features=std",
+            "--features=sync",
             "",
-            "--features tokio",
-            "--features futures",
-            "--features reqwest",
-            "--all-features",
           ]
     steps:
       - name: Checkout sources
@@ -31,11 +34,25 @@ jobs:
           toolchain: ${{ matrix.rust }}
 
       - name: Run cargo test
-        run: cargo test ${{ matrix.features }}
+        run: cargo test --release --no-default-features ${{ matrix.features }}
 
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [stable, beta]
+        features:
+          [
+            "--features=alloc,std,sync",
+            "--features=alloc,std",
+            "--features=alloc,sync",
+            "--features=alloc",
+            "--features=std,sync",
+            "--features=std",
+            "--features=sync",
+            "",
+          ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -47,7 +64,7 @@ jobs:
           components: clippy
 
       - name: Run clippy
-        run: cargo clippy --all-features --all-targets -- -D warnings
+        run: cargo clippy --no-default-features ${{ matrix.features }} --all-targets -- -D warnings
 
   fmt:
     name: Rustfmt
