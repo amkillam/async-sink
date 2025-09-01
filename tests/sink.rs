@@ -21,7 +21,7 @@ use tokio_sink::{Sink, SinkExt};
 use tokio_stream::{self as stream, Stream, StreamExt};
 
 #[cfg(feature = "sync")]
-use cor::{future::poll_fn, pin::pin};
+use core::{future::poll_fn, pin::pin};
 #[cfg(feature = "sync")]
 use futures_util::TryFutureExt;
 #[cfg(feature = "sync")]
