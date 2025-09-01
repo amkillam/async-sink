@@ -16,10 +16,10 @@ use tokio::sync::oneshot;
 /// [`Sink`]: trait@crate::Sink
 #[derive(Debug)]
 #[repr(transparent)]
-pub struct SenderSink<T>(pub Option<oneshot::Sender<T>>);
+pub struct Sender<T>(pub Option<oneshot::Sender<T>>);
 
-impl<T> SenderSink<T> {
-    /// Create a new `SenderSink` wrapping the provided `Sender`.
+impl<T> Sender<T> {
+    /// Create a new `Sender` wrapping the provided `Sender`.
     #[inline(always)]
     pub fn new(sender: oneshot::Sender<T>) -> Self {
         Self(Some(sender))
@@ -30,16 +30,47 @@ impl<T> SenderSink<T> {
     pub fn into_inner(self) -> Option<oneshot::Sender<T>> {
         self.0
     }
+
+    #[inline(always)]
+    pub fn send(self, t: T) -> Result<(), T> {
+        match self.0 {
+            Some(sender) => sender.send(t),
+            None => Err(t),
+        }
+    }
+
+    #[inline(always)]
+    pub async fn closed(&mut self) {
+        if let Some(sender) = self.0.as_mut() {
+            sender.closed().await;
+        }
+    }
+
+    #[inline(always)]
+    pub fn is_closed(&self) -> bool {
+        match self.0.as_ref() {
+            None => true,
+            Some(inner) => inner.is_closed(),
+        }
+    }
+
+    #[inline(always)]
+    pub fn poll_closed(&mut self, cx: &mut Context<'_>) -> Poll<()> {
+        match self.0.as_mut() {
+            Some(sender) => sender.poll_closed(cx),
+            None => Poll::Ready(()),
+        }
+    }
 }
 
-impl<T> From<oneshot::Sender<T>> for SenderSink<T> {
+impl<T> From<oneshot::Sender<T>> for Sender<T> {
     #[inline(always)]
     fn from(sender: oneshot::Sender<T>) -> Self {
         Self::new(sender)
     }
 }
 
-impl<T> Sink<T> for SenderSink<T> {
+impl<T> Sink<T> for Sender<T> {
     type Error = T;
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -68,17 +99,17 @@ impl<T> Sink<T> for SenderSink<T> {
     }
 }
 
-/// Create a new oneshot channel, returning a [`SenderSink`] and a [`ReceiverStream`].
+/// Create a new oneshot channel, returning a [`Sender`] and a [`ReceiverStream`].
 ///
-/// [`SenderSink`]: struct@SenderSink
+/// [`Sender`]: struct@Sender
 /// [`ReceiverStream`]: struct@tokio_stream_util::sync::oneshot::Receiver
 pub fn channel<T>() -> (
-    SenderSink<T>,
+    Sender<T>,
     tokio_stream_util::sync::oneshot::ReceiverStream<T>,
 ) {
     let (tx, rx) = tokio::sync::oneshot::channel();
     (
-        SenderSink::new(tx),
+        Sender::new(tx),
         tokio_stream_util::sync::oneshot::ReceiverStream::new(rx),
     )
 }

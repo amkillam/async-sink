@@ -9,7 +9,9 @@ use core::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::{
+    self, OwnedPermit, Permit, PermitIterator, WeakSender, WeakUnboundedSender,
+};
 use tokio_stream::wrappers::{ReceiverStream, UnboundedReceiverStream};
 
 pub use tokio::sync::mpsc::error;
@@ -19,7 +21,7 @@ pub use tokio::sync::mpsc::error::*;
 ///
 /// [`tokio::sync::mpsc::Sender`]: struct@tokio::sync::mpsc::Sender
 /// [`Sink`]: trait@crate::Sink
-pub struct SenderSink<T> {
+pub struct Sender<T> {
     pub(crate) inner: mpsc::Sender<T>,
     // Future created by `reserve()` to register wakers for readiness.
     // Stored across polls to maintain proper waker registration.
@@ -34,8 +36,11 @@ pub struct SenderSink<T> {
     >,
 }
 
-impl<T> SenderSink<T> {
-    /// Create a new `SenderSink` wrapping the provided `Sender`.
+// SAFETY: reserve_fut is the only non-Send field, and it is pinned and owned by the struct.
+unsafe impl<T> Send for Sender<T> where mpsc::Sender<T>: Send {}
+
+impl<T> Sender<T> {
+    /// Create a new `Sender` wrapping the provided `Sender`.
     #[inline(always)]
     pub fn new(sender: mpsc::Sender<T>) -> Self {
         Self {
@@ -49,23 +54,127 @@ impl<T> SenderSink<T> {
     pub fn into_inner(self) -> mpsc::Sender<T> {
         self.inner
     }
+
+    #[inline(always)]
+    pub async fn closed(&self) {
+        self.inner.closed().await
+    }
+
+    #[inline(always)]
+    pub async fn reserve_many(&self, n: usize) -> Result<PermitIterator<'_, T>, SendError<()>> {
+        self.inner.reserve_many(n).await
+    }
+
+    #[inline(always)]
+    pub async fn reserve_owned(self) -> Result<OwnedPermit<T>, SendError<()>> {
+        self.inner.reserve_owned().await
+    }
+
+    #[inline(always)]
+    pub async fn reserve(&self) -> Result<Permit<'_, T>, SendError<()>> {
+        self.inner.reserve().await
+    }
+
+    #[inline(always)]
+    pub async fn send(&self, value: T) -> Result<(), SendError<T>> {
+        self.inner.send(value).await
+    }
+
+    #[cfg(feature = "time")]
+    #[inline(always)]
+    pub async fn send_timeout(
+        &self,
+        value: T,
+        timeout: core::time::Duration,
+    ) -> Result<(), SendTimeoutError<T>> {
+        self.inner.send_timeout(value, timeout).await
+    }
+
+    #[inline(always)]
+    pub fn blocking_send(&self, value: T) -> Result<(), SendError<T>> {
+        self.inner.blocking_send(value)
+    }
+
+    #[inline(always)]
+    pub fn capacity(&self) -> usize {
+        self.inner.capacity()
+    }
+
+    #[inline(always)]
+    pub fn downgrade(&self) -> WeakSender<T> {
+        self.inner.downgrade()
+    }
+
+    #[inline(always)]
+    pub fn is_closed(&self) -> bool {
+        self.inner.is_closed()
+    }
+
+    #[inline(always)]
+    pub fn max_capacity(&self) -> usize {
+        self.inner.max_capacity()
+    }
+
+    #[inline(always)]
+    pub fn same_channel(&self, other: &Self) -> bool {
+        self.inner.same_channel(&other.inner)
+    }
+
+    #[inline(always)]
+    pub fn strong_count(&self) -> usize {
+        self.inner.strong_count()
+    }
+
+    #[inline(always)]
+    pub fn try_reserve_many(&self, n: usize) -> Result<PermitIterator<'_, T>, TrySendError<()>> {
+        self.inner.try_reserve_many(n)
+    }
+
+    #[inline(always)]
+    pub fn try_reserve_owned(self) -> Result<OwnedPermit<T>, TrySendError<Self>> {
+        self.inner.try_reserve_owned().map_err(|e| match e {
+            mpsc::error::TrySendError::Closed(e) => mpsc::error::TrySendError::Closed(Self {
+                inner: e,
+                reserve_fut: None,
+            }),
+            mpsc::error::TrySendError::Full(e) => mpsc::error::TrySendError::Full(Self {
+                inner: e,
+                reserve_fut: None,
+            }),
+        })
+    }
+
+    #[inline(always)]
+    pub fn try_reserve(&self) -> Result<Permit<'_, T>, TrySendError<()>> {
+        self.inner.try_reserve()
+    }
+
+    #[inline(always)]
+    pub fn try_send(&self, message: T) -> Result<(), TrySendError<T>> {
+        self.inner.try_send(message)
+    }
+
+    #[inline(always)]
+    pub fn weak_count(&self) -> usize {
+        self.inner.weak_count()
+    }
 }
 
-impl<T> AsRef<mpsc::Sender<T>> for SenderSink<T> {
+impl<T> AsRef<mpsc::Sender<T>> for Sender<T> {
     #[inline(always)]
     fn as_ref(&self) -> &mpsc::Sender<T> {
         &self.inner
     }
 }
 
-impl<T> AsMut<mpsc::Sender<T>> for SenderSink<T> {
+impl<T> AsMut<mpsc::Sender<T>> for Sender<T> {
     #[inline(always)]
     fn as_mut(&mut self) -> &mut mpsc::Sender<T> {
         &mut self.inner
     }
 }
 
-impl<T> Clone for SenderSink<T> {
+impl<T> Clone for Sender<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -74,22 +183,22 @@ impl<T> Clone for SenderSink<T> {
     }
 }
 
-impl<T> fmt::Debug for SenderSink<T> {
+impl<T> fmt::Debug for Sender<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SenderSink")
+        f.debug_struct("Sender")
             .field("inner", &self.inner)
             .finish()
     }
 }
 
-impl<T> From<mpsc::Sender<T>> for SenderSink<T> {
+impl<T> From<mpsc::Sender<T>> for Sender<T> {
     #[inline(always)]
     fn from(sender: mpsc::Sender<T>) -> Self {
         Self::new(sender)
     }
 }
 
-impl<T: 'static> Sink<T> for SenderSink<T> {
+impl<T: 'static> Sink<T> for Sender<T> {
     type Error = mpsc::error::TrySendError<()>;
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -158,10 +267,10 @@ impl<T: 'static> Sink<T> for SenderSink<T> {
 /// [`Sink`]: trait@crate::Sink
 #[derive(Debug, Clone)]
 #[repr(transparent)]
-pub struct UnboundedSenderSink<T>(pub mpsc::UnboundedSender<T>);
+pub struct UnboundedSender<T>(pub mpsc::UnboundedSender<T>);
 
-impl<T> UnboundedSenderSink<T> {
-    /// Create a new `UnboundedSenderSink` wrapping the provided `UnboundedSender`.
+impl<T> UnboundedSender<T> {
+    /// Create a new `UnboundedSender` wrapping the provided `UnboundedSender`.
     #[inline(always)]
     pub fn new(sender: mpsc::UnboundedSender<T>) -> Self {
         Self(sender)
@@ -172,30 +281,65 @@ impl<T> UnboundedSenderSink<T> {
     pub fn into_inner(self) -> mpsc::UnboundedSender<T> {
         self.0
     }
+
+    #[inline(always)]
+    pub async fn closed(&self) {
+        self.0.closed().await
+    }
+
+    #[inline(always)]
+    pub fn downgrade(&self) -> WeakUnboundedSender<T> {
+        self.0.downgrade()
+    }
+
+    #[inline(always)]
+    pub fn is_closed(&self) -> bool {
+        self.0.is_closed()
+    }
+
+    #[inline(always)]
+    pub fn same_channel(&self, other: &Self) -> bool {
+        self.0.same_channel(&other.0)
+    }
+
+    #[inline(always)]
+    pub fn send(&self, message: T) -> Result<(), SendError<T>> {
+        self.0.send(message)
+    }
+
+    #[inline(always)]
+    pub fn strong_count(&self) -> usize {
+        self.0.strong_count()
+    }
+
+    #[inline(always)]
+    pub fn weak_count(&self) -> usize {
+        self.0.weak_count()
+    }
 }
 
-impl<T> AsRef<mpsc::UnboundedSender<T>> for UnboundedSenderSink<T> {
+impl<T> AsRef<mpsc::UnboundedSender<T>> for UnboundedSender<T> {
     #[inline(always)]
     fn as_ref(&self) -> &mpsc::UnboundedSender<T> {
         &self.0
     }
 }
 
-impl<T> AsMut<mpsc::UnboundedSender<T>> for UnboundedSenderSink<T> {
+impl<T> AsMut<mpsc::UnboundedSender<T>> for UnboundedSender<T> {
     #[inline(always)]
     fn as_mut(&mut self) -> &mut mpsc::UnboundedSender<T> {
         &mut self.0
     }
 }
 
-impl<T> From<mpsc::UnboundedSender<T>> for UnboundedSenderSink<T> {
+impl<T> From<mpsc::UnboundedSender<T>> for UnboundedSender<T> {
     #[inline(always)]
     fn from(sender: mpsc::UnboundedSender<T>) -> Self {
         Self::new(sender)
     }
 }
 
-impl<T> Sink<T> for UnboundedSenderSink<T> {
+impl<T> Sink<T> for UnboundedSender<T> {
     type Error = mpsc::error::SendError<T>;
 
     fn poll_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -216,25 +360,22 @@ impl<T> Sink<T> for UnboundedSenderSink<T> {
     }
 }
 
-/// Creates a bounded MPSC channel, returning the sender wrapped in a [`SenderSink`] and the receiver wrapped in a [`ReceiverStream`].
+/// Creates a bounded MPSC channel, returning the sender wrapped in a [`Sender`] and the receiver wrapped in a [`ReceiverStream`].
 ///
-/// [`SenderSink`]: struct@SenderSink
+/// [`Sender`]: struct@Sender
 /// [`ReceiverStream`]: struct@tokio_stream::wrappers::ReceiverStream
 #[inline(always)]
-pub fn channel<T>(buffer: usize) -> (SenderSink<T>, ReceiverStream<T>) {
+pub fn channel<T>(buffer: usize) -> (Sender<T>, ReceiverStream<T>) {
     let (tx, rx) = mpsc::channel(buffer);
-    (SenderSink::new(tx), ReceiverStream::new(rx))
+    (Sender::new(tx), ReceiverStream::new(rx))
 }
 
-/// Creates an unbounded MPSC channel, returning the sender wrapped in a [`UnboundedSenderSink`] and the receiver wrapped in a [`UnboundedReceiverStream`].
+/// Creates an unbounded MPSC channel, returning the sender wrapped in a [`UnboundedSender`] and the receiver wrapped in a [`UnboundedReceiverStream`].
 ///
-/// [`UnboundedSenderSink`]: struct@UnboundedSenderSink
+/// [`UnboundedSender`]: struct@UnboundedSender
 /// [`UnboundedReceiverStream`]: struct@tokio_stream::wrappers::UnboundedReceiverStream
 #[inline(always)]
-pub fn unbounded_channel<T>() -> (UnboundedSenderSink<T>, UnboundedReceiverStream<T>) {
+pub fn unbounded_channel<T>() -> (UnboundedSender<T>, UnboundedReceiverStream<T>) {
     let (tx, rx) = mpsc::unbounded_channel();
-    (
-        UnboundedSenderSink::new(tx),
-        UnboundedReceiverStream::new(rx),
-    )
+    (UnboundedSender::new(tx), UnboundedReceiverStream::new(rx))
 }
