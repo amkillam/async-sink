@@ -20,6 +20,7 @@ alloc = ["tokio-stream-util/alloc"]
 sync = ["tokio-stream/sync", "tokio-stream-util/sync", "dep:tokio"]
 portable-atomic = ["tokio-stream-util/portable-atomic"]
 cfg-target-has-atomic = ["tokio-stream-util/cfg-target-has-atomic"]
+time = ["tokio-stream/time", "tokio/time"]
 
 [dependencies]
 tokio-stream = { version = "^0.1.17", default-features = false, features = [

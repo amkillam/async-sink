@@ -7,7 +7,6 @@ use core::{
     pin::Pin,
     task::{Context, Poll, Waker},
 };
-use futures_test::task::panic_context;
 use futures_util::future;
 use std::{
     collections::VecDeque,
@@ -18,22 +17,28 @@ use std::{
     },
 };
 use tokio_sink::{Sink, SinkExt};
-use tokio_stream::{self as stream, Stream, StreamExt};
+use tokio_stream::{self as stream, StreamExt};
 
 #[cfg(feature = "sync")]
-use core::{future::poll_fn, pin::pin};
+mod if_sync {
+    pub use core::{future::poll_fn, pin::pin};
+    pub use futures_test::task::panic_context;
+    use futures_test::task::panic_context;
+    pub use futures_util::TryFutureExt;
+    pub use tokio_sink::SinkErrInto;
+    pub use tokio_sink::{
+        sync::{mpsc, oneshot},
+        SinkErrInto,
+    };
+    pub use tokio_stream_util::{TryStream, TryStreamExt};
+}
 #[cfg(feature = "sync")]
-use futures_util::TryFutureExt;
-#[cfg(feature = "sync")]
-use tokio_sink::sync::{mpsc, oneshot};
-#[cfg(feature = "sync")]
-use tokio_sink::SinkErrInto;
-#[cfg(feature = "sync")]
-use tokio_stream_util::{TryStream, TryStreamExt};
+use if_sync::*;
 
+#[cfg(feature = "sync")]
 fn sassert_next<S>(s: &mut S, item: S::Item)
 where
-    S: Stream + Unpin,
+    S: stream::Stream + Unpin,
     S::Item: Eq + fmt::Debug,
 {
     match Pin::new(s).poll_next(&mut panic_context()) {
@@ -74,14 +79,18 @@ impl futures_util::task::ArcWake for Flag {
     }
 }
 
-fn flag_cx<F, R>(f: F) -> R
+fn flag_cx<'a: 'b + 'c + 'd, 'b: 'c + 'd, 'c: 'd, 'd, F, R>(f: F) -> R
 where
-    F: FnOnce(Arc<Flag>, &mut Context<'_>) -> R,
+    R: 'a,
+    F: FnOnce(Arc<Flag>, &'c mut Context<'b>) -> R,
+    F: 'd,
 {
     let flag = Flag::new();
-    let waker = futures_util::task::waker_ref(&flag);
-    let cx = &mut Context::from_waker(&waker);
-    f(flag.clone(), cx)
+    let waker = futures_util::task::waker(flag.clone());
+    let mut cx = Context::from_waker(unsafe { core::mem::transmute::<&Waker, &'b Waker>(&waker) });
+    f(flag.clone(), unsafe {
+        core::mem::transmute::<&mut Context<'b>, &'c mut Context<'b>>(&mut cx)
+    })
 }
 
 // Sends a value on an i32 channel sink
@@ -336,7 +345,7 @@ async fn with_flush() {
 
     assert_eq!(Pin::new(&mut sink).start_send(0).ok(), Some(()));
 
-    flag_cx(async |flag, cx| {
+    flag_cx(|flag, cx| async move {
         let mut task = sink.flush();
         assert!(Pin::new(&mut task).poll(cx).is_pending());
         tx.send(()).unwrap();
@@ -376,7 +385,7 @@ async fn with_flat_map() {
 #[tokio::test]
 async fn with_propagates_poll_ready() {
     let (tx, mut rx) = mpsc::channel::<i32>(0);
-    let mut tx = tx.with(|item: i32| future::ok::<i32, mpsc::SendError>(item + 10));
+    let mut tx = tx.with(|item: i32| future::ok::<i32, mpsc::TrySendError<i32>>(item + 10));
 
     future::lazy(|_| {
         flag_cx(|flag, cx| {
@@ -430,11 +439,11 @@ async fn with_implements_clone() {
     {
         let mut is_positive = tx
             .clone()
-            .with(|item| future::ok::<bool, mpsc::SendError>(item > 0));
+            .with(|item| future::ok::<bool, mpsc::TrySendError<()>>(item > 0));
 
         let mut is_long = tx
             .clone()
-            .with(|item: &str| future::ok::<bool, mpsc::SendError>(item.len() > 5));
+            .with(|item: &str| future::ok::<bool, mpsc::TrySendError<()>>(item.len() > 5));
 
         is_positive.clone().send(-1).await.unwrap();
         is_long.clone().send("123456").await.unwrap();
@@ -508,28 +517,31 @@ async fn fanout_backpressure() {
     let sink = left_send.fanout(right_send);
 
     let mut sink = StartSendFut::new(sink, 0).await.unwrap();
+    let local_set = tokio::task::LocalSet::new();
 
-    flag_cx(async |flag, cx| {
-        let mut task = sink.send(2);
-        assert!(!flag.take());
-        assert!(Pin::new(&mut task).poll(cx).is_pending());
-        assert_eq!(left_recv.next().await, Some(0));
-        assert!(flag.take());
-        assert!(Pin::new(&mut task).poll(cx).is_pending());
-        assert_eq!(right_recv.next().await, Some(0));
-        assert!(flag.take());
+    flag_cx(|flag, cx| {
+        async move {
+            let mut task = sink.send(2);
+            assert!(!flag.take());
+            assert!(Pin::new(&mut task).poll(cx).is_pending());
+            assert_eq!(left_recv.next().await, Some(0));
+            assert!(flag.take());
+            assert!(Pin::new(&mut task).poll(cx).is_pending());
+            assert_eq!(right_recv.next().await, Some(0));
+            assert!(flag.take());
 
-        assert!(Pin::new(&mut task).poll(cx).is_pending());
-        assert_eq!(left_recv.next().await, Some(2));
-        assert!(flag.take());
-        assert!(Pin::new(&mut task).poll(cx).is_pending());
-        assert_eq!(right_recv.next().await, Some(2));
-        assert!(flag.take());
+            assert!(Pin::new(&mut task).poll(cx).is_pending());
+            assert_eq!(left_recv.next().await, Some(2));
+            assert!(flag.take());
+            assert!(Pin::new(&mut task).poll(cx).is_pending());
+            assert_eq!(right_recv.next().await, Some(2));
+            assert!(flag.take());
 
-        unwrap(Pin::new(&mut task).poll(cx));
-        // make sure receivers live until end of test to prevent send errors
-        drop(left_recv);
-        drop(right_recv);
+            unwrap(Pin::new(&mut task).poll(cx));
+            // make sure receivers live until end of test to prevent send errors
+            drop(left_recv);
+            drop(right_recv);
+        }
     })
     .await
 }
@@ -556,7 +568,7 @@ async fn sink_map_err() {
 #[tokio::test]
 async fn sink_unfold() {
     poll_fn(|cx| {
-        let (tx, mut rx) = mpsc::channel(1);
+        let (tx, mut rx) = tokio::mpsc::channel(1);
         let unfold = tokio_sink::unfold((), |(), i: i32| {
             let mut tx = tx.clone();
             async move {
@@ -592,16 +604,16 @@ async fn err_into() {
     #[derive(Copy, Clone, Debug, PartialEq, Eq)]
     struct ErrIntoTest;
 
-    impl From<mpsc::SendError> for ErrIntoTest {
-        fn from(_: mpsc::SendError) -> Self {
-            Self
+    impl From<mpsc::TrySendError> for ErrIntoTest {
+        fn from(_: mpsc::TrySendError) -> Self {
+            ErrIntoTest
         }
     }
 
     {
         let cx = &mut panic_context();
         let (tx, _rx) = mpsc::channel(1);
-        let mut tx: SinkErrInto<mpsc::SenderSink<()>, _, ErrIntoTest> = tx.sink_err_into();
+        let mut tx: SinkErrInto<mpsc::Sender<()>, _, ErrIntoTest> = tx.sink_err_into();
         assert_eq!(Pin::new(&mut tx).start_send(()), Ok(()));
         assert_eq!(Pin::new(&mut tx).poll_flush(cx), Poll::Ready(Ok(())));
     }
