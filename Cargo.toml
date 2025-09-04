@@ -27,27 +27,6 @@ tokio = { version = "^1.15.0", default-features = false, features = [
 ], optional = true }
 either = { version = "^1.15.0", default-features = false }
 
-[dev-dependencies]
-tokio-stream = { version = "^0.1.17", default-features = false, features = [
-  "io-util",
-] }
-tokio = { version = "^1.15.0", default-features = false, features = [
-  "io-util",
-  "macros",
-  "rt-multi-thread",
-  "sync",
-] }
-futures-test = { version = "^0.3.28", default-features = false, features = [
-  "std",
-] }
-futures-util = { version = "^0.3.28", default-features = false, features = [
-  "std",
-  "alloc",
-] }
-tokio-stream-util = { version = "^0.2.4", default-features = false, features = [
-  "sink",
-] }
-
 [lib]
 name = "async_sink"
 path = "src/lib.rs"
