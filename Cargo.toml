@@ -27,6 +27,15 @@ tokio = { version = "^1.15.0", default-features = false, features = [
 ], optional = true }
 either = { version = "^1.15.0", default-features = false }
 
+[dev-dependencies]
+tokio = { version = "^1.15.0", default-features = false, features = [
+  "io-util",
+  "macros",
+  "rt-multi-thread",
+  "sync",
+] }
+
+
 [lib]
 name = "async_sink"
 path = "src/lib.rs"
