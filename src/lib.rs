@@ -232,6 +232,8 @@ impl<S: ?Sized + Sink<Item> + Unpin, Item> Sink<Item> for alloc::boxed::Box<S> {
 
 impl<SL: Sized + Sink<Item> + Unpin, SR: Sized + Sink<Item> + Unpin, Item> Sink<Item>
     for either::Either<SL, SR>
+where
+    either::Either<SL::Error, SR::Error>: core::error::Error,
 {
     type Error = either::Either<SL::Error, SR::Error>;
 
