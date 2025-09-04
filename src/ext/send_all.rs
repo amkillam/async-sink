@@ -24,6 +24,8 @@ where
 impl<Si, Item, St> fmt::Debug for SendAll<'_, Si, Item, St>
 where
     Si: fmt::Debug + ?Sized + Sink<Item>,
+    Si::Error: core::error::Error,
+    Item: fmt::Debug,
     St: fmt::Debug + Stream<Item = Result<Item, Si::Error>> + ?Sized,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

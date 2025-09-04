@@ -14,16 +14,7 @@ jobs:
       matrix:
         rust: [stable, beta]
         features:
-          [
-            "--features=alloc,std,sync",
-            "--features=alloc,std",
-            "--features=alloc,sync",
-            "--features=alloc",
-            "--features=std,sync",
-            "--features=std",
-            "--features=sync",
-            "",
-          ]
+          ["--features=alloc,std", "--features=alloc", "--features=std", ""]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -43,16 +34,7 @@ jobs:
       matrix:
         rust: [stable, beta]
         features:
-          [
-            "--features=alloc,std,sync",
-            "--features=alloc,std",
-            "--features=alloc,sync",
-            "--features=alloc",
-            "--features=std,sync",
-            "--features=std",
-            "--features=sync",
-            "",
-          ]
+          ["--features=alloc,std", "--features=alloc", "--features=std", ""]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4

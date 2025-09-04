@@ -82,6 +82,7 @@ where
 
 impl<T, F, Fut, Item, E> Sink<Item> for Unfold<T, F, Fut>
 where
+    E: core::error::Error,
     F: FnMut(T, Item) -> Fut,
     Fut: Future<Output = Result<T, E>>,
 {

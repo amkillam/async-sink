@@ -153,7 +153,7 @@ where
     Si: Sink<Item>,
     F: FnMut(U) -> Fut,
     Fut: Future<Output = Result<Item, E>>,
-    E: From<Si::Error>,
+    E: From<Si::Error> + core::error::Error,
 {
     type Error = E;
 

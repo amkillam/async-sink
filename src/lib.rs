@@ -54,7 +54,7 @@ pub use ext::*;
 #[must_use = "sinks do nothing unless polled"]
 pub trait Sink<Item> {
     /// The type of value produced by the sink when an error occurs.
-    type Error;
+    type Error: core::error::Error;
 
     /// Attempts to prepare the `Sink` to receive a value.
     ///

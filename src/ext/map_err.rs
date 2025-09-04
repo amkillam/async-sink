@@ -56,6 +56,7 @@ impl<Si, F> SinkMapErr<Si, F> {
 
 impl<Si, F, E, Item> Sink<Item> for SinkMapErr<Si, F>
 where
+    E: core::error::Error,
     Si: Sink<Item>,
     F: FnOnce(Si::Error) -> E,
 {

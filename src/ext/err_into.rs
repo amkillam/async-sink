@@ -54,6 +54,7 @@ impl<Si, Item, E> Sink<Item> for SinkErrInto<Si, Item, E>
 where
     Si: Sink<Item>,
     Si::Error: Into<E>,
+    E: core::error::Error,
 {
     type Error = E;
 
