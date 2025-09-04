@@ -24,7 +24,7 @@ dependencies = [
 
 [[package]]
 name = "async-sink"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "either 1.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-test 0.3.31 (registry+https://github.com/rust-lang/crates.io-index)",

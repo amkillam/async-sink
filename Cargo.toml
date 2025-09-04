@@ -1,6 +1,6 @@
 [package]
 name = "async-sink"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2018"
 authors = ["Adam Killam <adammkillam@gmail.com>"]
 description = "The asynchronous `Sink` trait for the tokio ecosystem."
