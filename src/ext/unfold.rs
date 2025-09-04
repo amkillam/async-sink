@@ -1,15 +1,23 @@
 use super::Sink;
 use crate::unfold_state::UnfoldState;
-use core::fmt;
-use core::future::Future;
-use core::pin::Pin;
-use core::task::{Context, Poll};
+use core::{
+    fmt,
+    future::Future,
+    marker::PhantomPinned,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 /// Sink for the [`unfold`] function.
 #[must_use = "sinks do nothing unless polled"]
 pub struct Unfold<T, F, Fut> {
     function: F,
     state: UnfoldState<T, Fut>,
+}
+
+struct UnfoldProj<'pin, T, F, Fut> {
+    function: &'pin mut F,
+    state: Pin<&'pin mut UnfoldState<T, Fut>>,
 }
 
 impl<T, F, Fut> Unfold<T, F, Fut> {
@@ -21,9 +29,12 @@ impl<T, F, Fut> Unfold<T, F, Fut> {
     // This is `unsafe` because it returns a `Pin` to one of the fields of the
     // struct. The caller must ensure that they don't move the struct while this
     // `Pin` is in use.
-    unsafe fn project(self: Pin<&mut Self>) -> (&mut F, Pin<&mut UnfoldState<T, Fut>>) {
+    unsafe fn project<'a>(self: Pin<&'a mut Self>) -> UnfoldProj<'a, T, F, Fut> {
         let this = self.get_unchecked_mut();
-        (&mut this.function, Pin::new_unchecked(&mut this.state))
+        UnfoldProj {
+            function: &mut this.function,
+            state: Pin::new_unchecked(&mut this.state),
+        }
     }
 }
 
@@ -92,46 +103,29 @@ where
     }
 
     fn start_send(self: Pin<&mut Self>, item: Item) -> Result<(), Self::Error> {
-        let (function, state_pin) = unsafe { self.project() };
-        let state_mut = unsafe { state_pin.get_unchecked_mut() };
-
-        let value = match state_mut {
-            UnfoldState::Value { .. } => {
-                if let UnfoldState::Value { value } = unsafe { core::ptr::read(state_mut) } {
-                    value
-                } else {
-                    unreachable!()
-                }
-            }
-            _ => panic!("start_send called without poll_ready being called first"),
+        let mut this = unsafe { self.project() };
+        let future = match this.state.as_mut().take_value() {
+            Some(value) => (this.function)(value, item),
+            None => panic!("start_send called without poll_ready being called first"),
         };
-
-        let future = function(value, item);
-        unsafe { core::ptr::write(state_mut, UnfoldState::Future { future }) };
+        this.state.set(UnfoldState::Future {
+            future,
+            _pin: PhantomPinned,
+        });
         Ok(())
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        let (_, state_pin) = unsafe { self.project() };
-        let state_mut = unsafe { state_pin.get_unchecked_mut() };
-
-        if let UnfoldState::Future { future } = state_mut {
-            let result = match unsafe { Pin::new_unchecked(future) }.poll(cx) {
-                Poll::Ready(result) => result,
-                Poll::Pending => return Poll::Pending,
-            };
-
-            // The future is finished, so we can replace the state.
-            // First, destruct the old state.
-            let _old_state = unsafe { core::ptr::read(state_mut) };
-
-            match result {
-                Ok(state) => {
-                    unsafe { core::ptr::write(state_mut, UnfoldState::Value { value: state }) };
+        let mut this = unsafe { self.project() };
+        if let Some(future) = this.state.as_mut().project_future() {
+            match future.poll(cx) {
+                Poll::Pending => Poll::Pending,
+                Poll::Ready(Ok(state)) => {
+                    this.state.set(UnfoldState::Value { value: state });
                     Poll::Ready(Ok(()))
                 }
-                Err(err) => {
-                    unsafe { core::ptr::write(state_mut, UnfoldState::Empty) };
+                Poll::Ready(Err(err)) => {
+                    this.state.set(UnfoldState::Empty);
                     Poll::Ready(Err(err))
                 }
             }

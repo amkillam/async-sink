@@ -75,73 +75,39 @@ where
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         let (sink1, sink2) = self.get_pin_mut();
 
-        let sink1_ready = match sink1.poll_ready(cx) {
-            Poll::Ready(Ok(())) => true,
-            Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-            Poll::Pending => false,
-        };
-
-        let sink2_ready = match sink2.poll_ready(cx) {
-            Poll::Ready(Ok(())) => true,
-            Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-            Poll::Pending => false,
-        };
-
-        if sink1_ready && sink2_ready {
-            Poll::Ready(Ok(()))
-        } else {
-            Poll::Pending
+        match (sink2.poll_ready(cx), sink1.poll_ready(cx)) {
+            (Poll::Ready(Ok(())), Poll::Ready(Ok(()))) => Poll::Ready(Ok(())),
+            (Poll::Ready(Err(e)), _) | (_, Poll::Ready(Err(e))) => Poll::Ready(Err(e)),
+            (_, Poll::Pending) | (Poll::Pending, _) => Poll::Pending,
         }
     }
 
     fn start_send(self: Pin<&mut Self>, item: Item) -> Result<(), Self::Error> {
         let (sink1, sink2) = self.get_pin_mut();
 
-        sink1.start_send(item.clone())?;
-        sink2.start_send(item)?;
-        Ok(())
+        match (sink1.start_send(item.clone()), sink2.start_send(item)) {
+            (Ok(()), Ok(())) => Ok(()),
+            (Err(e), _) | (_, Err(e)) => Err(e),
+        }
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         let (sink1, sink2) = self.get_pin_mut();
 
-        let sink1_ready = match sink1.poll_flush(cx) {
-            Poll::Ready(Ok(())) => true,
-            Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-            Poll::Pending => false,
-        };
-
-        let sink2_ready = match sink2.poll_flush(cx) {
-            Poll::Ready(Ok(())) => true,
-            Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-            Poll::Pending => false,
-        };
-
-        if sink1_ready && sink2_ready {
-            Poll::Ready(Ok(()))
-        } else {
-            Poll::Pending
+        match (sink2.poll_flush(cx), sink1.poll_flush(cx)) {
+            (Poll::Ready(Ok(())), Poll::Ready(Ok(()))) => Poll::Ready(Ok(())),
+            (Poll::Ready(Err(e)), _) | (_, Poll::Ready(Err(e))) => Poll::Ready(Err(e)),
+            (_, Poll::Pending) | (Poll::Pending, _) => Poll::Pending,
         }
     }
 
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         let (sink1, sink2) = self.get_pin_mut();
 
-        let sink1_ready = match sink1.poll_close(cx) {
-            Poll::Ready(Ok(())) => true,
-            Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-            Poll::Pending => false,
-        };
-        let sink2_ready = match sink2.poll_close(cx) {
-            Poll::Ready(Ok(())) => true,
-            Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-            Poll::Pending => false,
-        };
-
-        if sink1_ready && sink2_ready {
-            Poll::Ready(Ok(()))
-        } else {
-            Poll::Pending
+        match (sink2.poll_close(cx), sink1.poll_close(cx)) {
+            (Poll::Ready(Ok(())), Poll::Ready(Ok(()))) => Poll::Ready(Ok(())),
+            (Poll::Ready(Err(e)), _) | (_, Poll::Ready(Err(e))) => Poll::Ready(Err(e)),
+            (_, Poll::Pending) | (Poll::Pending, _) => Poll::Pending,
         }
     }
 }

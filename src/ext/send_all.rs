@@ -2,7 +2,6 @@ use super::Sink;
 use core::{
     fmt,
     future::Future,
-    ops::DerefMut,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -71,13 +70,14 @@ where
 
 impl<'a, Si, Item, St> Future for SendAll<'a, Si, Item, St>
 where
+    Item: Unpin,
     Si: Sink<Item> + Unpin + ?Sized,
     St: Stream<Item = Result<Item, Si::Error>> + Unpin + ?Sized,
 {
     type Output = Result<(), Si::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if let Some(item) = unsafe { self.as_mut().get_unchecked_mut() }.buffered.take() {
+        if let Some(item) = self.as_mut().buffered.take() {
             match self.as_mut().try_start_send(cx, item) {
                 Poll::Ready(Ok(())) => {}
                 Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
@@ -86,27 +86,26 @@ where
         }
 
         loop {
-            let this = unsafe { self.as_mut().get_unchecked_mut() };
+            let mut this = self.as_mut();
             if this.stream_done {
-                return Pin::new(&mut *this.sink).poll_flush(cx);
+                return Pin::new(&mut this.sink).poll_flush(cx);
             }
 
-            match <St as Stream>::poll_next(Pin::new(this.stream.deref_mut()), cx) {
-                Poll::Ready(Some(Ok(item))) => match self.as_mut().try_start_send(cx, item) {
+            match <St as Stream>::poll_next(Pin::new(&mut this.stream), cx) {
+                Poll::Ready(Some(Ok(item))) => match this.try_start_send(cx, item) {
                     Poll::Ready(Ok(())) => continue,
                     Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
                     Poll::Pending => return Poll::Pending,
                 },
                 Poll::Ready(Some(Err(e))) => {
-                    unsafe { self.as_mut().get_unchecked_mut() }.stream_done = true;
+                    this.stream_done = true;
                     return Poll::Ready(Err(e));
                 }
                 Poll::Ready(None) => {
-                    unsafe { self.as_mut().get_unchecked_mut() }.stream_done = true;
+                    this.stream_done = true;
                 }
                 Poll::Pending => {
-                    let this = unsafe { self.as_mut().get_unchecked_mut() };
-                    return match Pin::new(&mut *this.sink).poll_flush(cx) {
+                    return match Pin::new(&mut this.sink).poll_flush(cx) {
                         Poll::Ready(Ok(())) => Poll::Pending,
                         Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
                         Poll::Pending => Poll::Pending,

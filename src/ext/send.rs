@@ -26,7 +26,7 @@ impl<Si: Sink<Item> + Unpin + ?Sized, Item> Future for Send<'_, Si, Item> {
     type Output = Result<(), Si::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = &mut *self;
+        let mut this = self.as_mut();
 
         if this.feed.is_item_pending() {
             match Pin::new(&mut this.feed).poll(cx) {

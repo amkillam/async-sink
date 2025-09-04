@@ -129,22 +129,25 @@ where
         let this = unsafe { self.get_unchecked_mut() };
 
         if let Some(fut) = this.state.as_mut() {
-            let item_res = match unsafe { Pin::new_unchecked(fut) }.poll(cx) {
-                Poll::Ready(res) => res,
-                Poll::Pending => return Poll::Pending,
-            };
-            this.state = None;
-            let item = match item_res {
-                Ok(item) => item,
-                Err(e) => return Poll::Ready(Err(e)),
-            };
-            let sink = unsafe { Pin::new_unchecked(&mut this.sink) };
-            if let Err(e) = sink.start_send(item) {
-                return Poll::Ready(Err(e.into()));
+            match unsafe { Pin::new_unchecked(fut) }.poll(cx) {
+                Poll::Ready(item_res) => {
+                    this.state = None;
+                    match item_res {
+                        Ok(item) => {
+                            let sink = unsafe { Pin::new_unchecked(&mut this.sink) };
+                            match sink.start_send(item) {
+                                Err(e) => Poll::Ready(Err(e.into())),
+                                Ok(()) => Poll::Ready(Ok(())),
+                            }
+                        }
+                        Err(e) => Poll::Ready(Err(e)),
+                    }
+                }
+                Poll::Pending => Poll::Pending,
             }
+        } else {
+            Poll::Ready(Ok(()))
         }
-
-        Poll::Ready(Ok(()))
     }
 }
 
@@ -159,14 +162,16 @@ where
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match self.as_mut().poll(cx) {
-            Poll::Ready(Ok(())) => {}
-            Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-            Poll::Pending => return Poll::Pending,
-        }
-        let sink = unsafe { Pin::new_unchecked(&mut self.get_unchecked_mut().sink) };
-        match sink.poll_ready(cx) {
-            Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
-            Poll::Ready(Err(e)) => Poll::Ready(Err(e.into())),
+            Poll::Ready(Ok(())) => {
+                match unsafe { Pin::new_unchecked(&mut self.get_unchecked_mut().sink) }
+                    .poll_ready(cx)
+                {
+                    Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
+                    Poll::Ready(Err(e)) => Poll::Ready(Err(e.into())),
+                    Poll::Pending => Poll::Pending,
+                }
+            }
+            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
             Poll::Pending => Poll::Pending,
         }
     }
@@ -181,28 +186,32 @@ where
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match self.as_mut().poll(cx) {
-            Poll::Ready(Ok(())) => {}
-            Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-            Poll::Pending => return Poll::Pending,
-        };
-        let sink = unsafe { Pin::new_unchecked(&mut self.get_unchecked_mut().sink) };
-        match sink.poll_flush(cx) {
-            Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
-            Poll::Ready(Err(e)) => Poll::Ready(Err(e.into())),
+            Poll::Ready(Ok(())) => {
+                match unsafe { Pin::new_unchecked(&mut self.get_unchecked_mut().sink) }
+                    .poll_flush(cx)
+                {
+                    Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
+                    Poll::Ready(Err(e)) => Poll::Ready(Err(e.into())),
+                    Poll::Pending => Poll::Pending,
+                }
+            }
+            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
             Poll::Pending => Poll::Pending,
         }
     }
 
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match self.as_mut().poll(cx) {
-            Poll::Ready(Ok(())) => {}
-            Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-            Poll::Pending => return Poll::Pending,
-        };
-        let sink = unsafe { Pin::new_unchecked(&mut self.get_unchecked_mut().sink) };
-        match sink.poll_close(cx) {
-            Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
-            Poll::Ready(Err(e)) => Poll::Ready(Err(e.into())),
+            Poll::Ready(Ok(())) => {
+                match unsafe { Pin::new_unchecked(&mut self.get_unchecked_mut().sink) }
+                    .poll_close(cx)
+                {
+                    Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
+                    Poll::Ready(Err(e)) => Poll::Ready(Err(e.into())),
+                    Poll::Pending => Poll::Pending,
+                }
+            }
+            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
             Poll::Pending => Poll::Pending,
         }
     }
