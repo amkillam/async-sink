@@ -3,7 +3,6 @@ use core::marker::PhantomData;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use tokio_stream::Stream;
-use tokio_stream_util::FusedStream;
 
 /// Sink for the [`sink_err_into`](super::SinkExt::sink_err_into) method.
 #[derive(Debug)]
@@ -107,14 +106,5 @@ where
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.sink.size_hint()
-    }
-}
-
-impl<Si, Item, E> FusedStream for SinkErrInto<Si, Item, E>
-where
-    Si: Sink<Item> + FusedStream,
-{
-    fn is_terminated(&self) -> bool {
-        self.sink.is_terminated()
     }
 }

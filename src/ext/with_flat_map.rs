@@ -3,7 +3,6 @@ use core::marker::PhantomData;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use tokio_stream::Stream;
-use tokio_stream_util::FusedStream;
 
 use super::Sink;
 
@@ -142,17 +141,6 @@ where
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.sink.size_hint()
-    }
-}
-
-impl<S, Item, U, St, F> FusedStream for WithFlatMap<S, Item, U, St, F>
-where
-    S: FusedStream + Sink<Item>,
-    F: FnMut(U) -> St,
-    St: Stream<Item = Result<Item, S::Error>>,
-{
-    fn is_terminated(&self) -> bool {
-        self.sink.is_terminated()
     }
 }
 

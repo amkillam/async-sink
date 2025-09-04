@@ -1,7 +1,7 @@
-#[cfg(feature = "sync")]
 #[tokio::test]
 async fn it_works() {
-    use async_sink::{sync::mpsc, SinkExt};
+    use async_sink::SinkExt;
+    use smpsc::mpsc;
     use tokio::join;
     use tokio_stream::{self as stream, StreamExt};
 

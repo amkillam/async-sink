@@ -11,7 +11,6 @@ use core::pin::Pin;
 use core::task::{Context, Poll};
 use either::Either;
 use tokio_stream::Stream;
-use tokio_stream_util::TryStream;
 
 pub use super::Sink;
 
@@ -72,7 +71,7 @@ pub trait SinkExt<Item>: Sink<Item> {
     ///
     /// Note that this function consumes the given sink, returning a wrapped
     /// version, much like `Iterator::map`.
-    fn with<U, Fut, F, E>(self, f: F) -> With<Self, Item, U, Fut, F>
+    fn with<U, Fut, F, E>(self, f: F) -> With<Self, Item, U, Fut, F, E>
     where
         F: FnMut(U) -> Fut,
         Fut: Future<Output = Result<Item, E>>,
@@ -96,16 +95,11 @@ pub trait SinkExt<Item>: Sink<Item> {
     ///
     /// # Examples
     ///
-    /// ```
     /// ```rust
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// # use core::pin::Pin;
-    /// # use core::task::{Context, Poll};
-    /// # use tokio::sync::mpsc;
-    /// # use tokio_stream::{self as stream, StreamExt};
-    /// # use crate::sink::{Sink, SinkExt};
-    /// // This example requires a `Sink` implementation for `mpsc::UnboundedSender`.
+    /// use core::pin::Pin;
+    /// use core::task::{Context, Poll};
+    /// use tokio::sync::mpsc;
+    /// use async_sink::{Sink, SinkExt};
     /// struct MySender<T>(mpsc::UnboundedSender<T>);
     ///
     /// impl<T> Sink<T> for MySender<T> {
@@ -127,12 +121,13 @@ pub trait SinkExt<Item>: Sink<Item> {
     ///         Poll::Ready(Ok(()))
     ///     }
     /// }
-    ///
+    /// #[tokio::main]
+    /// async fn main() {
     /// let (tx, mut rx) = mpsc::unbounded_channel();
     /// let tx = MySender(tx);
     ///
     /// let mut tx = tx.with_flat_map(|x: usize| {
-    ///     stream::iter(vec![Ok(42); x])
+    ///     tokio_stream::iter(vec![Ok(42); x])
     /// });
     ///
     /// tx.send(5).await.unwrap();
@@ -140,7 +135,7 @@ pub trait SinkExt<Item>: Sink<Item> {
     /// let mut received = Vec::new();
     /// while let Some(i) = rx.recv().await { received.push(i); }
     /// assert_eq!(received, vec![42, 42, 42, 42, 42]);
-    /// # }
+    /// }
     /// ```
     fn with_flat_map<U, St, F>(self, f: F) -> WithFlatMap<Self, Item, U, St, F>
     where
@@ -275,9 +270,9 @@ pub trait SinkExt<Item>: Sink<Item> {
     /// Doing `sink.send_all(stream)` is roughly equivalent to
     /// `stream.forward(sink)`. The returned future will exhaust all items from
     /// `stream` and send them to `self`.
-    fn send_all<'a, St>(&'a mut self, stream: &'a mut St) -> SendAll<'a, Self, St>
+    fn send_all<'a, St>(&'a mut self, stream: &'a mut St) -> SendAll<'a, Self, Item, St>
     where
-        St: TryStream<Ok = Item, Error = Self::Error> + Unpin + ?Sized,
+        St: Stream<Item = Result<Item, Self::Error>> + Unpin + ?Sized,
         Self: Unpin,
     {
         SendAll::new(self, stream)

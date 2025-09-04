@@ -1,7 +1,6 @@
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use tokio_stream::Stream;
-use tokio_stream_util::FusedStream;
 
 use super::Sink;
 
@@ -104,11 +103,5 @@ impl<S: Stream, F> Stream for SinkMapErr<S, F> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.sink.size_hint()
-    }
-}
-
-impl<S: FusedStream, F> FusedStream for SinkMapErr<S, F> {
-    fn is_terminated(&self) -> bool {
-        self.sink.is_terminated()
     }
 }

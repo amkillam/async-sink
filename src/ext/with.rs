@@ -4,22 +4,22 @@ use core::marker::PhantomData;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use tokio_stream::Stream;
-use tokio_stream_util::FusedStream;
 
 use super::Sink;
 
 /// Sink for the [`with`](super::SinkExt::with) method.
 #[must_use = "sinks do nothing unless polled"]
-pub struct With<Si, Item, U, Fut, F> {
+pub struct With<Si, Item, U, Fut, F, E> {
     sink: Si,
     f: F,
     state: Option<Fut>,
-    _phantom: PhantomData<fn(U) -> Item>,
+    _phantom_e: PhantomData<E>,
+    _phantom_item: PhantomData<fn(U) -> Item>,
 }
 
-impl<Si: Unpin, Item, U, Fut: Unpin, F> Unpin for With<Si, Item, U, Fut, F> {}
+impl<Si: Unpin, Item, U, Fut: Unpin, F, E> Unpin for With<Si, Item, U, Fut, F, E> {}
 
-impl<Si, Item, U, Fut, F> fmt::Debug for With<Si, Item, U, Fut, F>
+impl<Si, Item, U, Fut, F, E> fmt::Debug for With<Si, Item, U, Fut, F, E>
 where
     Si: fmt::Debug,
     Fut: fmt::Debug,
@@ -32,27 +32,25 @@ where
     }
 }
 
-impl<Si, Item, U, Fut, F> With<Si, Item, U, Fut, F>
+impl<Si, Item, U, Fut, F, E> With<Si, Item, U, Fut, F, E>
 where
     Si: Sink<Item>,
     F: FnMut(U) -> Fut,
-    Fut: Future,
+    E: From<Si::Error>,
+    Fut: Future<Output = Result<Item, E>>,
 {
-    pub(super) fn new<E>(sink: Si, f: F) -> Self
-    where
-        Fut: Future<Output = Result<Item, E>>,
-        E: From<Si::Error>,
-    {
+    pub(super) fn new(sink: Si, f: F) -> Self {
         Self {
             state: None,
             sink,
             f,
-            _phantom: PhantomData,
+            _phantom_item: PhantomData,
+            _phantom_e: PhantomData,
         }
     }
 }
 
-impl<Si, Item, U, Fut, F> Clone for With<Si, Item, U, Fut, F>
+impl<Si, Item, U, Fut, F, E> Clone for With<Si, Item, U, Fut, F, E>
 where
     Si: Clone,
     F: Clone,
@@ -63,17 +61,19 @@ where
             state: self.state.clone(),
             sink: self.sink.clone(),
             f: self.f.clone(),
-            _phantom: PhantomData,
+            _phantom_item: PhantomData,
+            _phantom_e: PhantomData,
         }
     }
 }
 
 // Forwarding impl of Stream from the underlying sink
-impl<S, Item, U, Fut, F> Stream for With<S, Item, U, Fut, F>
+impl<S, Item, U, Fut, F, E> Stream for With<S, Item, U, Fut, F, E>
 where
     S: Stream + Sink<Item>,
     F: FnMut(U) -> Fut,
-    Fut: Future,
+    Fut: Future<Output = Result<Item, E>>,
+    E: From<S::Error>,
 {
     type Item = S::Item;
 
@@ -88,18 +88,7 @@ where
     }
 }
 
-impl<S, Item, U, Fut, F> FusedStream for With<S, Item, U, Fut, F>
-where
-    S: FusedStream + Sink<Item>,
-    F: FnMut(U) -> Fut,
-    Fut: Future,
-{
-    fn is_terminated(&self) -> bool {
-        self.sink.is_terminated()
-    }
-}
-
-impl<Si, Item, U, Fut, F, E> With<Si, Item, U, Fut, F>
+impl<Si, Item, U, Fut, F, E> With<Si, Item, U, Fut, F, E>
 where
     Si: Sink<Item>,
     F: FnMut(U) -> Fut,
@@ -159,7 +148,7 @@ where
     }
 }
 
-impl<Si, Item, U, Fut, F, E> Sink<U> for With<Si, Item, U, Fut, F>
+impl<Si, Item, U, Fut, F, E> Sink<U> for With<Si, Item, U, Fut, F, E>
 where
     Si: Sink<Item>,
     F: FnMut(U) -> Fut,

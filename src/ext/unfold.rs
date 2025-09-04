@@ -44,23 +44,30 @@ where
 /// # Examples
 ///
 /// ```
-/// # #[tokio::main]
-/// # async fn main() -> Result<(), core::convert::Infallible> {
 /// use core::pin::pin;
+/// use async_sink::SinkExt;
+/// use tokio::sync::Mutex;
+/// use std::sync::Arc;
 ///
-/// use crate::sink::{self, SinkExt};
+/// #[tokio::main]
+/// async fn main() {
+/// let output: Arc<Mutex<Vec<usize>>> = Arc::new(tokio::sync::Mutex::new(Vec::new()));
 ///
-/// let unfold = sink::unfold(0, |mut sum, i: i32| {
-///     async move {
+/// let unfold = async_sink::unfold(0, |mut sum, i: usize| {
+///    let cb_output = output.clone();
+///    async move {
 ///         sum += i;
-///         eprintln!("{}", i);
+///         cb_output.clone().lock().await.push(sum);
 ///         Ok::<_, core::convert::Infallible>(sum)
-///     }
+///    }
 /// });
 /// let mut unfold = pin!(unfold);
-/// unfold.send(5).await?;
-/// # Ok(())
-/// # }
+/// let input: [usize; 3] = [5, 15, 35];
+/// assert!(unfold.send_all(&mut tokio_stream::iter(input.iter().copied().map(|i| Ok(i)))).await.is_ok());
+/// assert_eq!(output.lock().await.as_slice(),input.iter().scan(0, |state, &x|
+///   { *state += x; Some(*state) }).collect::<Vec<usize>>().as_slice()
+/// );
+/// }
 /// ```
 pub fn unfold<T, F, Fut, Item, E>(init: T, function: F) -> Unfold<T, F, Fut>
 where

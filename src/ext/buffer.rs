@@ -3,7 +3,6 @@ use alloc::collections::VecDeque;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use tokio_stream::Stream;
-use tokio_stream_util::FusedStream;
 
 /// Sink for the [`buffer`](super::SinkExt::buffer) method.
 #[derive(Debug)]
@@ -99,15 +98,6 @@ where
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.sink.size_hint()
-    }
-}
-
-impl<S, Item> FusedStream for Buffer<S, Item>
-where
-    S: Sink<Item> + FusedStream,
-{
-    fn is_terminated(&self) -> bool {
-        self.sink.is_terminated()
     }
 }
 

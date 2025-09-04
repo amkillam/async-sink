@@ -1,6 +1,6 @@
 [package]
 name = "async-sink"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2018"
 authors = ["Adam Killam <adammkillam@gmail.com>"]
 description = "The asynchronous `Sink` trait for the tokio ecosystem."
@@ -15,18 +15,13 @@ rust-version = "1.40.0"
 
 [features]
 default = ["std", "alloc"]
-std = ["either/std", "tokio-stream-util/std"]
-alloc = ["tokio-stream-util/alloc"]
-sync = ["tokio-stream/sync", "tokio-stream-util/sync", "dep:tokio"]
-portable-atomic = ["tokio-stream-util/portable-atomic"]
-cfg-target-has-atomic = ["tokio-stream-util/cfg-target-has-atomic"]
-time = ["tokio-stream/time", "tokio/time"]
+std = ["either/std"]
+alloc = []
 
 [dependencies]
 tokio-stream = { version = "^0.1.17", default-features = false, features = [
   "io-util",
 ] }
-tokio-stream-util = { version = "^0.2.0", default-features = false }
 tokio = { version = "^1.15.0", default-features = false, features = [
   "sync",
 ], optional = true }
@@ -48,6 +43,9 @@ futures-test = { version = "^0.3.28", default-features = false, features = [
 futures-util = { version = "^0.3.28", default-features = false, features = [
   "std",
   "alloc",
+] }
+tokio-stream-util = { version = "^0.2.4", default-features = false, features = [
+  "sink",
 ] }
 
 [lib]

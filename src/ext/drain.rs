@@ -18,14 +18,13 @@ pub struct Drain<T> {
 /// # Examples
 ///
 /// ```
-/// # #[tokio::main]
-/// # async fn main() -> Result<(), core::convert::Infallible> {
-/// use crate::sink::{self, SinkExt};
-///
-/// let mut drain = sink::drain();
-/// drain.send(5).await?;
-/// # Ok(())
-/// # }
+/// use async_sink::SinkExt;
+/// #[tokio::main]
+/// async fn main() {
+///   let mut drain = async_sink::drain();
+///   assert!(drain.send_all(&mut tokio_stream::iter((1u8..=5u8).map(|i| Ok(i)))).await.is_ok());
+///   assert!(drain.send_all(&mut tokio_stream::iter(b"hello".iter().map(|c| Ok(*c)))).await.is_ok());
+/// }
 /// ```
 pub fn drain<T>() -> Drain<T> {
     Drain {
