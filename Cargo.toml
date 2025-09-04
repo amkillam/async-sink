@@ -1,16 +1,16 @@
 [package]
-name = "tokio-sink"
+name = "async-sink"
 version = "0.1.0"
 edition = "2018"
 authors = ["Adam Killam <adammkillam@gmail.com>"]
 description = "The asynchronous `Sink` trait for the tokio ecosystem."
 license = "MIT"
-repository = "https://github.com/amkillam/tokio-sink"
+repository = "https://github.com/amkillam/async-sink"
 readme = "README.md"
 keywords = ["tokio", "sink", "stream", "asynchronous", "async"]
 categories = ["asynchronous", "network-programming", "data-structures"]
-homepage = "https://github.com/amkillam/tokio-sink"
-documentation = "https://docs.rs/tokio-sink"
+homepage = "https://github.com/amkillam/async-sink"
+documentation = "https://docs.rs/async-sink"
 rust-version = "1.40.0"
 
 [features]
@@ -51,7 +51,7 @@ futures-util = { version = "^0.3.28", default-features = false, features = [
 ] }
 
 [lib]
-name = "tokio_sink"
+name = "async_sink"
 path = "src/lib.rs"
 test = true
 doctest = true

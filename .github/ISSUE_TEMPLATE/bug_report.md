@@ -2,15 +2,15 @@
 name: Bug report
 about: Create a report to help us improve
 title: ""
-labels: A-tokio-sink, C-bug
+labels: A-async-sink, C-bug
 assignees: ""
 ---
 
 **Version**
-List the versions of `tokio-sink` you are using. The easiest way to get
+List the versions of `async-sink` you are using. The easiest way to get
 this information is using `cargo tree` subcommand:
 
-`cargo tree | grep tokio-sink`
+`cargo tree | grep async-sink`
 
 **Platform**
 The output of `uname -a` (UNIX), or version and 32 or 64-bit (Windows)

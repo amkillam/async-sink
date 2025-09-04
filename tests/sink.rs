@@ -1,3 +1,4 @@
+use async_sink::{Sink, SinkExt};
 use core::{
     cell::{Cell, RefCell},
     convert::Infallible,
@@ -16,20 +17,19 @@ use std::{
         Arc,
     },
 };
-use tokio_sink::{Sink, SinkExt};
 use tokio_stream::{self as stream, StreamExt};
 
 #[cfg(feature = "sync")]
 mod if_sync {
+    pub use async_sink::SinkErrInto;
+    pub use async_sink::{
+        sync::{mpsc, oneshot},
+        SinkErrInto,
+    };
     pub use core::{future::poll_fn, pin::pin};
     pub use futures_test::task::panic_context;
     use futures_test::task::panic_context;
     pub use futures_util::TryFutureExt;
-    pub use tokio_sink::SinkErrInto;
-    pub use tokio_sink::{
-        sync::{mpsc, oneshot},
-        SinkErrInto,
-    };
     pub use tokio_stream_util::{TryStream, TryStreamExt};
 }
 #[cfg(feature = "sync")]
@@ -569,7 +569,7 @@ async fn sink_map_err() {
 async fn sink_unfold() {
     poll_fn(|cx| {
         let (tx, mut rx) = tokio::mpsc::channel(1);
-        let unfold = tokio_sink::unfold((), |(), i: i32| {
+        let unfold = async_sink::unfold((), |(), i: i32| {
             let mut tx = tx.clone();
             async move {
                 tx.send(i).await.unwrap();

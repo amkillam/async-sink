@@ -2,7 +2,7 @@
 name: Feature request
 about: Suggest an idea for this project
 title: ""
-labels: A-tokio-sink, C-feature-request
+labels: A-async-sink, C-feature-request
 assignees: ""
 ---
 
