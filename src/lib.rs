@@ -54,7 +54,7 @@ pub use ext::*;
 #[must_use = "sinks do nothing unless polled"]
 pub trait Sink<Item> {
     /// The type of value produced by the sink when an error occurs.
-    type Error: core::error::Error;
+    type Error;
 
     /// Attempts to prepare the `Sink` to receive a value.
     ///
@@ -232,8 +232,6 @@ impl<S: ?Sized + Sink<Item> + Unpin, Item> Sink<Item> for alloc::boxed::Box<S> {
 
 impl<SL: Sized + Sink<Item> + Unpin, SR: Sized + Sink<Item> + Unpin, Item> Sink<Item>
     for either::Either<SL, SR>
-where
-    either::Either<SL::Error, SR::Error>: core::error::Error,
 {
     type Error = either::Either<SL::Error, SR::Error>;
 

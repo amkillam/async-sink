@@ -24,7 +24,6 @@ where
 impl<Si, Item, St> fmt::Debug for SendAll<'_, Si, Item, St>
 where
     Si: fmt::Debug + ?Sized + Sink<Item>,
-    Si::Error: core::error::Error,
     Item: fmt::Debug,
     St: fmt::Debug + Stream<Item = Result<Item, Si::Error>> + ?Sized,
 {
@@ -41,7 +40,6 @@ where
 impl<'a, Si, Item, St> SendAll<'a, Si, Item, St>
 where
     Si: Sink<Item> + Unpin + ?Sized,
-    Si::Error: core::error::Error,
     St: Stream<Item = Result<Item, Si::Error>> + Unpin + ?Sized,
 {
     pub(super) fn new(sink: &'a mut Si, stream: &'a mut St) -> Self {
