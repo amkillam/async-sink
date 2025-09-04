@@ -44,7 +44,7 @@ futures-util = { version = "^0.3.28", default-features = false, features = [
   "std",
   "alloc",
 ] }
-tokio-stream-util = { version = "=0.2.0", default-features = false, features = [
+tokio-stream-util = { version = "^0.2.4", default-features = false, features = [
   "sink",
 ] }
 
